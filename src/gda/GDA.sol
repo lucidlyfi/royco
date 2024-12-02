@@ -26,12 +26,12 @@ library GradualDutchAuction {
         returns (uint256)
     {
         int256 maxIntValue = type(int256).max; // 2**255 - 1
-        int256 maxAllowed = 135e18;
+        int256 maxAllowed = 135_305_999_368_893_231_589;
         int256 quantity = SafeCastLib.toInt256(numTokens);
         int256 timeSinceLastAuctionStart = SafeCastLib.toInt256(block.timestamp) - lastAuctionStartTime;
         int256 num1 = FixedPointMathLib.rawSDivWad(1e18, decayRate);
-        int256 exponent = FixedPointMathLib.expWad(_mulDiv(decayRate, quantity, emissionRate) * maxAllowed / maxIntValue) - 1;
-        int256 den = FixedPointMathLib.expWad(decayRate * timeSinceLastAuctionStart / 1e18);
+        int256 exponent = FixedPointMathLib.expWad(_mulDiv(_mulDiv(decayRate, quantity, emissionRate), maxAllowed, maxIntValue)) - 1;
+        int256 den = FixedPointMathLib.expWad(FixedPointMathLib.sMulWad(_mulDiv(decayRate, maxAllowed, maxIntValue), timeSinceLastAuctionStart));
 
         int256 totalIncentiveMultiplier = (num1 * exponent) / den;
         return SafeCastLib.toUint256(totalIncentiveMultiplier);

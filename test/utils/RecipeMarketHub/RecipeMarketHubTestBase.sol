@@ -119,8 +119,6 @@ contract RecipeMarketHubTestBase is RoycoTestBase, RecipeUtils {
         mockIncentiveToken.mint(_ipAddress, 1000e18);
         mockIncentiveToken.approve(address(recipeMarketHub), 1000e18);
 
-        console.log("calling IPGdaOffer -> initialDiscountMultiplier:", gdaParams.initialDiscountMultiplier);
-
         offerHash = recipeMarketHub.createIPGdaOffer(
             _targetMarketHash, // Referencing the created market
             _quantity, // Total input token amount
