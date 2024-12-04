@@ -49,6 +49,7 @@ contract Test_IPOfferCreation_RecipeMarketHub is RecipeMarketHubTestBase {
             0, // Expected offer ID (starts at 0)
             bytes32(0),
             marketHash, // Market ID
+            address(0),
             quantity, // Total quantity
             tokensOffered, // Tokens offered
             incentiveAmountsOffered, // Amounts offered
@@ -199,6 +200,7 @@ contract Test_IPOfferCreation_RecipeMarketHub is RecipeMarketHubTestBase {
             0, // Expected offer ID (starts at 0)
             bytes32(0),
             marketHash, // Market ID
+            address(0),
             quantity, // Total quantity
             tokensOffered, // Tokens offered
             incentiveAmountsOffered, // Amounts offered
