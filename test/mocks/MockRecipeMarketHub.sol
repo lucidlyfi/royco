@@ -11,6 +11,7 @@ import { SafeTransferLib } from "lib/solmate/src/utils/SafeTransferLib.sol";
 import { FixedPointMathLib } from "lib/solmate/src/utils/FixedPointMathLib.sol";
 import { Points } from "src/Points.sol";
 import { PointsFactory } from "src/PointsFactory.sol";
+import { GradualDutchAuction } from "src/gda/GDA.sol";
 
 contract MockRecipeMarketHub is RecipeMarketHub {
     constructor(
@@ -27,6 +28,10 @@ contract MockRecipeMarketHub is RecipeMarketHub {
         _fillIPOffer(offerHash, fillAmount, fundingVault, frontendFeeRecipient);
     }
 
+    function fillIPGdaOffers(bytes32 offerHash, uint256 fillAmount, address fundingVault, address frontendFeeRecipient) external {
+        _fillIPGdaOffer(offerHash, fillAmount, fundingVault, frontendFeeRecipient);
+    }
+
     function fillAPOffers(APOffer calldata offer, uint256 fillAmount, address frontendFeeRecipient) external {
         _fillAPOffer(offer, fillAmount, frontendFeeRecipient);
     }
@@ -36,12 +41,41 @@ contract MockRecipeMarketHub is RecipeMarketHub {
         return offerHashToIPOffer[offerHash].incentiveAmountsOffered[tokenAddress];
     }
 
+    function getMaxIncentiveAmountsOfferedForIPGdaOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
+        return offerHashToIPGdaOffer[offerHash].incentiveAmountsOffered[tokenAddress];
+    }
+
+    function getIncentiveAmountsOfferedForIPGdaOffer(bytes32 offerHash, address tokenAddress, uint256 fillAmount) external view returns (uint256) {
+        uint256 incentiveMultiplier = GradualDutchAuction._calculateIncentiveMultiplier(
+            offerHashToIPGdaOffer[offerHash].gdaParams.decayRate,
+            offerHashToIPGdaOffer[offerHash].gdaParams.emissionRate,
+            offerHashToIPGdaOffer[offerHash].gdaParams.lastAuctionStartTime,
+            fillAmount
+        );
+
+        uint256 initialIncentivesOffered = offerHashToIPGdaOffer[offerHash].initialIncentiveAmountsOffered[tokenAddress];
+        uint256 maxIncentivesOffered = offerHashToIPGdaOffer[offerHash].incentiveAmountsOffered[tokenAddress];
+
+        uint256 adjustedIncentiveMultiplier =
+            FixedPointMathLib.mulWadDown(incentiveMultiplier, FixedPointMathLib.divWadDown(initialIncentivesOffered, maxIncentivesOffered));
+
+        return FixedPointMathLib.mulWadDown(initialIncentivesOffered, adjustedIncentiveMultiplier);
+    }
+
     function getIncentiveToProtocolFeeAmountForIPOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
         return offerHashToIPOffer[offerHash].incentiveToProtocolFeeAmount[tokenAddress];
     }
 
+    function getIncentiveToProtocolFeeAmountForIPGdaOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
+        return offerHashToIPGdaOffer[offerHash].incentiveToProtocolFeeAmount[tokenAddress];
+    }
+
     function getIncentiveToFrontendFeeAmountForIPOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
         return offerHashToIPOffer[offerHash].incentiveToFrontendFeeAmount[tokenAddress];
+    }
+
+    function getIncentiveToFrontendFeeAmountForIPGdaOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
+        return offerHashToIPGdaOffer[offerHash].incentiveToFrontendFeeAmount[tokenAddress];
     }
 
     // Single getter function that returns the entire LockedRewardParams struct as a tuple
