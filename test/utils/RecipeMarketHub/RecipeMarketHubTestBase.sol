@@ -5,7 +5,6 @@ import "../../../src/WeirollWallet.sol";
 import "test/mocks/MockRecipeMarketHub.sol";
 import "../../../src/PointsFactory.sol";
 
-import { console } from "lib/forge-std/src/console.sol";
 import { MockERC20 } from "test/mocks/MockERC20.sol";
 import { MockERC4626 } from "test/mocks/MockERC4626.sol";
 

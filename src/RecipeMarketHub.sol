@@ -520,16 +520,6 @@ contract RecipeMarketHub is RecipeMarketHubBase {
         // Number of incentives offered by the IP
         uint256 numIncentives = offer.incentivesOffered.length;
 
-        // uint256 numIncentives;
-        // /// @solidity memory-safe-assembly
-        // assembly ("memory-safe") {
-        //     let baseSlot := add(offer.slot, 6)
-        //     let memPtr := mload(0x40)
-        //     mstore(memPtr, baseSlot)
-        //     let incentivesSlot := keccak256(memPtr, 0x20)
-        //     numIncentives := sload(incentivesSlot)
-        // }
-
         // Arrays to store incentives and fee amounts to be paid
         uint256[] memory incentiveAmountsPaid = new uint256[](numIncentives);
         uint256[] memory protocolFeesPaid = new uint256[](numIncentives);
@@ -712,7 +702,7 @@ contract RecipeMarketHub is RecipeMarketHubBase {
         // Execute deposit recipe
         wallet.executeWeiroll(market.depositRecipe.weirollCommands, market.depositRecipe.weirollState);
 
-        emit IPGdaOfferFilled(offerHash, fillAmount, address(wallet), incentiveAmountsPaid, protocolFeesPaid, frontendFeesPaid);
+        emit IPGdaOfferFilled(offerHash, msg.sender, fillAmount, address(wallet), incentiveAmountsPaid, protocolFeesPaid, frontendFeesPaid);
     }
 
     /// @dev Fill multiple AP offers

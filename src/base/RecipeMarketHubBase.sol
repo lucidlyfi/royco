@@ -262,6 +262,7 @@ abstract contract RecipeMarketHubBase is Owned, ReentrancyGuardTransient {
     );
 
     /// @param offerHash Hash of the offer (used to identify IP offers)
+    /// @param ap The address of the AP that filled this offer.
     /// @param fillAmount The amount of the offer that was filled in the market input token
     /// @param weirollWallet The address of the weiroll wallet containing the AP's funds, created on fill, used to execute the recipes
     /// @param incentiveAmounts The amount of incentives allocated to the AP on fill (claimable as per the market's reward type)
@@ -269,6 +270,7 @@ abstract contract RecipeMarketHubBase is Owned, ReentrancyGuardTransient {
     /// @param frontendFeeAmounts The rewards frontend fee per incentive on fill (claimable as per the market's reward type)
     event IPGdaOfferFilled(
         bytes32 indexed offerHash,
+        address indexed ap,
         uint256 fillAmount,
         address weirollWallet,
         uint256[] incentiveAmounts,
