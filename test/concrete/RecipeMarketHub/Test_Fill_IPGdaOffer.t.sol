@@ -10,7 +10,7 @@ import { ERC4626 } from "src/RecipeMarketHub.sol";
 import { RecipeMarketHubTestBase } from "../../utils/RecipeMarketHub/RecipeMarketHubTestBase.sol";
 import { FixedPointMathLib } from "lib/solmate/src/utils/FixedPointMathLib.sol";
 
-contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
+contract Test_Fill_IPGdaOffer_RecipeMarketHub is RecipeMarketHubTestBase {
     using FixedPointMathLib for uint256;
 
     address IP_ADDRESS;
@@ -27,14 +27,16 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         FRONTEND_FEE_RECIPIENT = CHARLIE_ADDRESS;
     }
 
-    function test_DirectFill_Upfront_IPOffer_ForTokens() external {
+    function test_DirectFill_Upfront_IPGdaOffer_ForTokens() external {
+        vm.warp(vm.getBlockTimestamp() + 100_000);
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Upfront);
+
         uint256 offerAmount = 100_000e18; // Offer amount requested
-        uint256 fillAmount = 10_000e18; // Fill amount, filling 1%
+        uint256 fillAmount = 1000e18; // Fill amount
 
         // Create a fillable IP offer
-        bytes32 offerHash = createIPOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
+        bytes32 offerHash = createIPGdaOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
 
         // Mint liquidity tokens to the AP to fill the offer
         mockLiquidityToken.mint(AP_ADDRESS, fillAmount);
@@ -43,7 +45,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
-            calculateIPOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
+            calculateIPGdaOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
 
         // Expect events for transfers
         vm.expectEmit(true, true, false, true, address(mockIncentiveToken));
@@ -53,16 +55,16 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         emit ERC20.Transfer(AP_ADDRESS, address(0), fillAmount);
 
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
-        emit RecipeMarketHubBase.IPOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
+        emit RecipeMarketHubBase.IPGdaOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
 
         // Record the logs to capture Transfer events to get Weiroll wallet address
         vm.recordLogs();
         // Fill the offer
         vm.startPrank(AP_ADDRESS);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         // Extract the Weiroll wallet address (the 'to' address from the second Transfer event)
@@ -87,68 +89,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         assertEq(recipeMarketHub.feeClaimantToTokenToAmount(OWNER_ADDRESS, address(mockIncentiveToken)), expectedProtocolFeeAmount);
     }
 
-    function test_DirectFullFill_Upfront_IPOffer_ForTokens() external {
-        uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
-        bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Upfront);
-
-        uint256 offerAmount = 100_000e18; // Offer amount requested
-        uint256 fillAmount = 100_000e18; // Fill amount
-
-        // Create a fillable IP offer
-        bytes32 offerHash = createIPOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
-
-        // Mint liquidity tokens to the AP to fill the offer
-        mockLiquidityToken.mint(AP_ADDRESS, fillAmount);
-        vm.startPrank(AP_ADDRESS);
-        mockLiquidityToken.approve(address(recipeMarketHub), fillAmount);
-        vm.stopPrank();
-
-        (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
-            calculateIPOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
-
-        // Expect events for transfers
-        vm.expectEmit(true, true, false, true, address(mockIncentiveToken));
-        emit ERC20.Transfer(address(recipeMarketHub), AP_ADDRESS, expectedIncentiveAmount);
-
-        vm.expectEmit(true, false, false, true, address(mockLiquidityToken));
-        emit ERC20.Transfer(AP_ADDRESS, address(0), fillAmount);
-
-        vm.expectEmit(false, false, false, false, address(recipeMarketHub));
-        emit RecipeMarketHubBase.IPOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
-
-        // Record the logs to capture Transfer events to get Weiroll wallet address
-        vm.recordLogs();
-        // Fill the offer
-        vm.startPrank(AP_ADDRESS);
-        recipeMarketHub.fillIPOffers(offerHash, type(uint256).max, address(0), FRONTEND_FEE_RECIPIENT);
-        vm.stopPrank();
-
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
-        assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
-
-        // Extract the Weiroll wallet address (the 'to' address from the second Transfer event)
-        address weirollWallet = address(uint160(uint256(vm.getRecordedLogs()[1].topics[2])));
-
-        // Ensure there is a weirollWallet at the expected address
-        assertGt(weirollWallet.code.length, 0);
-
-        // Ensure that the deposit recipe was executed
-        assertEq(WeirollWallet(payable(weirollWallet)).executed(), true);
-
-        // Ensure the AP received the correct incentive amount
-        assertEq(mockIncentiveToken.balanceOf(AP_ADDRESS), expectedIncentiveAmount);
-
-        // Ensure the weiroll wallet got the liquidity
-        assertEq(mockLiquidityToken.balanceOf(weirollWallet), fillAmount);
-
-        // Check the frontend fee recipient received the correct fee
-        assertEq(recipeMarketHub.feeClaimantToTokenToAmount(FRONTEND_FEE_RECIPIENT, address(mockIncentiveToken)), expectedFrontendFeeAmount);
-
-        // Check the protocol fee recipient received the correct fee
-        assertEq(recipeMarketHub.feeClaimantToTokenToAmount(OWNER_ADDRESS, address(mockIncentiveToken)), expectedProtocolFeeAmount);
-    }
-
-    function test_DirectFill_Upfront_IPOffer_ForPoints() external {
+    function test_DirectFill_Upfront_IPGdaOffer_ForPoints() external {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Upfront);
 
@@ -162,10 +103,10 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         // Create a fillable IP offer
-        (bytes32 offerHash, Points points) = createIPOffer_WithPoints(marketHash, offerAmount, IP_ADDRESS);
+        (bytes32 offerHash, Points points) = createIPGdaOffer_WithPoints(marketHash, offerAmount, IP_ADDRESS);
 
         (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
-            calculateIPOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(points));
+            calculateIPGdaOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(points));
 
         // Expect events for transfers
         vm.expectEmit(true, true, false, true, address(points));
@@ -181,16 +122,16 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         emit ERC20.Transfer(AP_ADDRESS, address(0), fillAmount);
 
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
-        emit RecipeMarketHubBase.IPOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
+        emit RecipeMarketHubBase.IPGdaOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
 
         // Record the logs to capture Transfer events to get Weiroll wallet address
         vm.recordLogs();
         // Fill the offer
         vm.startPrank(AP_ADDRESS);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         // Extract the Weiroll wallet address (the 'to' address from the Transfer event - third event in logs)
@@ -206,7 +147,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         assertEq(mockLiquidityToken.balanceOf(weirollWallet), fillAmount);
     }
 
-    function test_VaultFill_Upfront_IPOffer_ForTokens() external {
+    function test_VaultFill_Upfront_IPGdaOffer_ForTokens() external {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Upfront);
 
@@ -214,7 +155,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 fillAmount = 1000e18; // Fill amount
 
         // Create a fillable IP offer
-        bytes32 offerHash = createIPOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
+        bytes32 offerHash = createIPGdaOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
 
         // Mint liquidity tokens to deposit into the vault
         mockLiquidityToken.mint(AP_ADDRESS, fillAmount);
@@ -228,7 +169,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
-            calculateIPOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
+            calculateIPGdaOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
 
         // Expect events for transfers
         vm.expectEmit(true, true, false, true, address(mockIncentiveToken));
@@ -245,16 +186,16 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         emit ERC20.Transfer(address(mockVault), address(0), fillAmount);
 
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
-        emit RecipeMarketHubBase.IPOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
+        emit RecipeMarketHubBase.IPGdaOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
 
         // Record the logs to capture Transfer events to get Weiroll wallet address
         vm.recordLogs();
         // Fill the offer
         vm.startPrank(AP_ADDRESS);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(mockVault), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(mockVault), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         // Extract the Weiroll wallet address (the 'to' address from the third Transfer event)
@@ -279,7 +220,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         assertEq(recipeMarketHub.feeClaimantToTokenToAmount(OWNER_ADDRESS, address(mockIncentiveToken)), expectedProtocolFeeAmount);
     }
 
-    function test_VaultFill_Upfront_IPOffer_ForPoints() external {
+    function test_VaultFill_Upfront_IPGdaOffer_ForPoints() external {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Upfront);
 
@@ -298,10 +239,10 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         // Create a fillable IP offer
-        (bytes32 offerHash, Points points) = createIPOffer_WithPoints(marketHash, offerAmount, IP_ADDRESS);
+        (bytes32 offerHash, Points points) = createIPGdaOffer_WithPoints(marketHash, offerAmount, IP_ADDRESS);
 
         (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
-            calculateIPOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(points));
+            calculateIPGdaOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(points));
 
         // Expect events for transfers
         vm.expectEmit(true, true, false, true, address(points));
@@ -324,16 +265,16 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         emit ERC20.Transfer(address(mockVault), address(0), fillAmount);
 
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
-        emit RecipeMarketHubBase.IPOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
+        emit RecipeMarketHubBase.IPGdaOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
 
         // Record the logs to capture Transfer events to get Weiroll wallet address
         vm.recordLogs();
         // Fill the offer
         vm.startPrank(AP_ADDRESS);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(mockVault), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(mockVault), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         // Extract the Weiroll wallet address (the 'to' address from the Transfer event - third event in logs)
@@ -349,7 +290,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         assertEq(mockLiquidityToken.balanceOf(weirollWallet), fillAmount);
     }
 
-    function test_DirectFill_Forfeitable_IPOffer_ForTokens() external {
+    function test_DirectFill_Forfeitable_IPGdaOffer_ForTokens() external {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Forfeitable);
 
@@ -357,7 +298,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 fillAmount = 1000e18; // Fill amount
 
         // Create a fillable IP offer
-        bytes32 offerHash = createIPOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
+        bytes32 offerHash = createIPGdaOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
 
         // Mint liquidity tokens to the AP to fill the offer
         mockLiquidityToken.mint(AP_ADDRESS, fillAmount);
@@ -366,22 +307,22 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
-            calculateIPOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
+            calculateIPGdaOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
 
         vm.expectEmit(true, false, false, true, address(mockLiquidityToken));
         emit ERC20.Transfer(AP_ADDRESS, address(0), fillAmount);
 
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
-        emit RecipeMarketHubBase.IPOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
+        emit RecipeMarketHubBase.IPGdaOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
 
         // Record the logs to capture Transfer events to get Weiroll wallet address
         vm.recordLogs();
         // Fill the offer
         vm.startPrank(AP_ADDRESS);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         // Extract the Weiroll wallet address (the 'to' address from the Transfer event)
@@ -406,7 +347,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         assertEq(recipeMarketHub.feeClaimantToTokenToAmount(OWNER_ADDRESS, address(mockIncentiveToken)), 0);
     }
 
-    function test_DirectFill_Forfeitable_IPOffer_ForPoints() external {
+    function test_DirectFill_Forfeitable_IPGdaOffer_ForPoints() external {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Forfeitable);
 
@@ -420,10 +361,10 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         // Create a fillable IP offer
-        (bytes32 offerHash, Points points) = createIPOffer_WithPoints(marketHash, offerAmount, IP_ADDRESS);
+        (bytes32 offerHash, Points points) = createIPGdaOffer_WithPoints(marketHash, offerAmount, IP_ADDRESS);
 
         (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
-            calculateIPOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(points));
+            calculateIPGdaOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(points));
 
         // vm.expectEmit(true, true, false, true, address(points));
         // emit Points.Award(OWNER_ADDRESS, expectedProtocolFeeAmount);
@@ -435,16 +376,16 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         emit ERC20.Transfer(AP_ADDRESS, address(0), fillAmount);
 
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
-        emit RecipeMarketHubBase.IPOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
+        emit RecipeMarketHubBase.IPGdaOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
 
         // Record the logs to capture Transfer events to get Weiroll wallet address
         vm.recordLogs();
         // Fill the offer
         vm.startPrank(AP_ADDRESS);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         // Extract the Weiroll wallet address (the 'to' address from the Transfer event - third event in logs)
@@ -469,7 +410,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         assertEq(recipeMarketHub.feeClaimantToTokenToAmount(OWNER_ADDRESS, address(mockIncentiveToken)), 0);
     }
 
-    function test_VaultFill_Forfeitable_IPOffer_ForTokens() external {
+    function test_VaultFill_Forfeitable_IPGdaOffer_ForTokens() external {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Forfeitable);
 
@@ -477,7 +418,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 fillAmount = 1000e18; // Fill amount
 
         // Create a fillable IP offer
-        bytes32 offerHash = createIPOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
+        bytes32 offerHash = createIPGdaOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
 
         // Mint liquidity tokens to deposit into the vault
         mockLiquidityToken.mint(AP_ADDRESS, fillAmount);
@@ -491,7 +432,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
-            calculateIPOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
+            calculateIPGdaOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
 
         // burn shares
         vm.expectEmit(true, true, false, false, address(mockVault));
@@ -504,16 +445,16 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         emit ERC20.Transfer(address(mockVault), address(0), fillAmount);
 
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
-        emit RecipeMarketHubBase.IPOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
+        emit RecipeMarketHubBase.IPGdaOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
 
         // Record the logs to capture Transfer events to get Weiroll wallet address
         vm.recordLogs();
         // Fill the offer
         vm.startPrank(AP_ADDRESS);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(mockVault), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(mockVault), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         // Extract the Weiroll wallet address (the 'to' address from the third Transfer event)
@@ -538,7 +479,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         assertEq(recipeMarketHub.feeClaimantToTokenToAmount(OWNER_ADDRESS, address(mockIncentiveToken)), 0);
     }
 
-    function test_VaultFill_Forfeitable_IPOffer_ForPoints() external {
+    function test_VaultFill_Forfeitable_IPGdaOffer_ForPoints() external {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Forfeitable);
 
@@ -557,10 +498,10 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         // Create a fillable IP offer
-        (bytes32 offerHash, Points points) = createIPOffer_WithPoints(marketHash, offerAmount, IP_ADDRESS);
+        (bytes32 offerHash, Points points) = createIPGdaOffer_WithPoints(marketHash, offerAmount, IP_ADDRESS);
 
         (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
-            calculateIPOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(points));
+            calculateIPGdaOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(points));
 
         // vm.expectEmit(true, true, false, true, address(points));
         // emit Points.Award(OWNER_ADDRESS, expectedProtocolFeeAmount);
@@ -579,16 +520,16 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         emit ERC20.Transfer(address(mockVault), address(0), fillAmount);
 
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
-        emit RecipeMarketHubBase.IPOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
+        emit RecipeMarketHubBase.IPGdaOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
 
         // Record the logs to capture Transfer events to get Weiroll wallet address
         vm.recordLogs();
         // Fill the offer
         vm.startPrank(AP_ADDRESS);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(mockVault), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(mockVault), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         address weirollWallet = address(uint160(uint256(vm.getRecordedLogs()[2].topics[2])));
@@ -612,7 +553,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         assertEq(recipeMarketHub.feeClaimantToTokenToAmount(OWNER_ADDRESS, address(mockIncentiveToken)), 0);
     }
 
-    function test_DirectFill_Arrear_IPOffer_ForTokens() external {
+    function test_DirectFill_Arrear_IPGdaOffer_ForTokens() external {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Arrear);
 
@@ -620,7 +561,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 fillAmount = 1000e18; // Fill amount
 
         // Create a fillable IP offer
-        bytes32 offerHash = createIPOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
+        bytes32 offerHash = createIPGdaOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
 
         // Mint liquidity tokens to the AP to fill the offer
         mockLiquidityToken.mint(AP_ADDRESS, fillAmount);
@@ -629,22 +570,22 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
-            calculateIPOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
+            calculateIPGdaOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
 
         vm.expectEmit(true, false, false, true, address(mockLiquidityToken));
         emit ERC20.Transfer(AP_ADDRESS, address(0), fillAmount);
 
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
-        emit RecipeMarketHubBase.IPOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
+        emit RecipeMarketHubBase.IPGdaOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
 
         // Record the logs to capture Transfer events to get Weiroll wallet address
         vm.recordLogs();
         // Fill the offer
         vm.startPrank(AP_ADDRESS);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         // Extract the Weiroll wallet address (the 'to' address from the Transfer event)
@@ -669,7 +610,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         assertEq(recipeMarketHub.feeClaimantToTokenToAmount(OWNER_ADDRESS, address(mockIncentiveToken)), 0);
     }
 
-    function test_DirectFill_Arrear_IPOffer_ForPoints() external {
+    function test_DirectFill_Arrear_IPGdaOffer_ForPoints() external {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Arrear);
 
@@ -683,10 +624,10 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         // Create a fillable IP offer
-        (bytes32 offerHash, Points points) = createIPOffer_WithPoints(marketHash, offerAmount, IP_ADDRESS);
+        (bytes32 offerHash, Points points) = createIPGdaOffer_WithPoints(marketHash, offerAmount, IP_ADDRESS);
 
         (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
-            calculateIPOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(points));
+            calculateIPGdaOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(points));
 
         // vm.expectEmit(true, true, false, true, address(points));
         // emit Points.Award(OWNER_ADDRESS, expectedProtocolFeeAmount);
@@ -698,16 +639,16 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         emit ERC20.Transfer(AP_ADDRESS, address(0), fillAmount);
 
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
-        emit RecipeMarketHubBase.IPOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
+        emit RecipeMarketHubBase.IPGdaOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
 
         // Record the logs to capture Transfer events to get Weiroll wallet address
         vm.recordLogs();
         // Fill the offer
         vm.startPrank(AP_ADDRESS);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         // Extract the Weiroll wallet address (the 'to' address from the Transfer event - first event in logs)
@@ -732,7 +673,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         assertEq(recipeMarketHub.feeClaimantToTokenToAmount(OWNER_ADDRESS, address(mockIncentiveToken)), 0);
     }
 
-    function test_VaultFill_Arrear_IPOffer_ForTokens() external {
+    function test_VaultFill_Arrear_IPGdaOffer_ForTokens() external {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Arrear);
 
@@ -740,7 +681,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 fillAmount = 1000e18; // Fill amount
 
         // Create a fillable IP offer
-        bytes32 offerHash = createIPOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
+        bytes32 offerHash = createIPGdaOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
 
         // Mint liquidity tokens to deposit into the vault
         mockLiquidityToken.mint(AP_ADDRESS, fillAmount);
@@ -754,7 +695,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
-            calculateIPOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
+            calculateIPGdaOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
 
         // burn shares
         vm.expectEmit(true, true, false, false, address(mockVault));
@@ -767,16 +708,16 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         emit ERC20.Transfer(address(mockVault), address(0), fillAmount);
 
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
-        emit RecipeMarketHubBase.IPOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
+        emit RecipeMarketHubBase.IPGdaOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
 
         // Record the logs to capture Transfer events to get Weiroll wallet address
         vm.recordLogs();
         // Fill the offer
         vm.startPrank(AP_ADDRESS);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(mockVault), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(mockVault), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         // Extract the Weiroll wallet address (the 'to' address from the third Transfer event)
@@ -801,7 +742,7 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         assertEq(recipeMarketHub.feeClaimantToTokenToAmount(OWNER_ADDRESS, address(mockIncentiveToken)), 0);
     }
 
-    function test_VaultFill_Arrear_IPOffer_ForPoints() external {
+    function test_VaultFill_Arrear_IPGdaOffer_ForPoints() external {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Arrear);
 
@@ -820,10 +761,10 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         // Create a fillable IP offer
-        (bytes32 offerHash, Points points) = createIPOffer_WithPoints(marketHash, offerAmount, IP_ADDRESS);
+        (bytes32 offerHash, Points points) = createIPGdaOffer_WithPoints(marketHash, offerAmount, IP_ADDRESS);
 
         (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
-            calculateIPOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(points));
+            calculateIPGdaOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(points));
 
         // vm.expectEmit(true, true, false, true, address(points));
         // emit Points.Award(OWNER_ADDRESS, expectedProtocolFeeAmount);
@@ -842,16 +783,16 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         emit ERC20.Transfer(address(mockVault), address(0), fillAmount);
 
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
-        emit RecipeMarketHubBase.IPOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
+        emit RecipeMarketHubBase.IPGdaOfferFilled(0, 0, address(0), new uint256[](0), new uint256[](0), new uint256[](0));
 
         // Record the logs to capture Transfer events to get Weiroll wallet address
         vm.recordLogs();
         // Fill the offer
         vm.startPrank(AP_ADDRESS);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(mockVault), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(mockVault), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         address weirollWallet = address(uint160(uint256(vm.getRecordedLogs()[2].topics[2])));
@@ -883,14 +824,14 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 fillAmount = 1000e18;
 
         // Create an offer with a past expiry date
-        bytes32 offerHash = createIPOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
+        bytes32 offerHash = createIPGdaOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
 
         // Offer is now expired
         vm.warp(block.timestamp + 30 days + 1 seconds);
 
         // Attempt to fill the expired offer, expecting a revert
         vm.expectRevert(RecipeMarketHubBase.OfferExpired.selector);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
     }
 
     function test_RevertIf_NotEnoughRemainingQuantity() external {
@@ -901,11 +842,11 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 fillAmount = 100_001e18; // Fill amount exceeds the offer amount
 
         // Create a fillable IP offer
-        bytes32 offerHash = createIPOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
+        bytes32 offerHash = createIPGdaOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
 
         // Attempt to fill more than available, expecting a revert
         vm.expectRevert(RecipeMarketHubBase.NotEnoughRemainingQuantity.selector);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
     }
 
     function test_RevertIf_MismatchedBaseAsset() external {
@@ -916,14 +857,14 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 fillAmount = 1000e18;
 
         // Create a fillable IP offer
-        bytes32 offerHash = createIPOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
+        bytes32 offerHash = createIPGdaOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
 
         // Use a different vault with a mismatched base asset
         address incorrectVault = address(new MockERC4626(mockIncentiveToken)); // Mismatched asset
 
         // Attempt to fill with a mismatched base asset, expecting a revert
         vm.expectRevert(RecipeMarketHubBase.MismatchedBaseAsset.selector);
-        recipeMarketHub.fillIPOffers(offerHash, fillAmount, incorrectVault, FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, incorrectVault, FRONTEND_FEE_RECIPIENT);
     }
 
     function test_RevertIf_ZeroQuantityFill() external {
@@ -933,10 +874,10 @@ contract Test_Fill_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 offerAmount = 100_000e18;
 
         // Create a fillable IP offer
-        bytes32 offerHash = createIPOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
+        bytes32 offerHash = createIPGdaOffer_WithTokens(marketHash, offerAmount, IP_ADDRESS);
 
         // Attempt to fill with a zero quantity, expecting a revert
         vm.expectRevert(RecipeMarketHubBase.CannotPlaceZeroQuantityOffer.selector);
-        recipeMarketHub.fillIPOffers(offerHash, 0, address(0), FRONTEND_FEE_RECIPIENT);
+        recipeMarketHub.fillIPGdaOffers(offerHash, 0, address(0), FRONTEND_FEE_RECIPIENT);
     }
 }

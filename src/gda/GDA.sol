@@ -26,7 +26,7 @@ library GradualDutchAuction {
         returns (uint256)
     {
         int256 maxIntValue = type(int256).max; // 2**255 - 1
-        int256 maxAllowed = 135_305_999_368_893_231_589;
+        int256 maxAllowed = 135_305_999_368_893_231_588; // because `expWad(x)` reverts at x >= 135305999368893231589
         int256 quantity = SafeCastLib.toInt256(numTokens);
         int256 timeSinceLastAuctionStart = SafeCastLib.toInt256(block.timestamp) - lastAuctionStartTime;
         int256 num1 = FixedPointMathLib.rawSDivWad(1e18, decayRate);

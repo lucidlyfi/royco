@@ -59,7 +59,7 @@ contract MockRecipeMarketHub is RecipeMarketHub {
         uint256 adjustedIncentiveMultiplier =
             FixedPointMathLib.mulWadDown(incentiveMultiplier, FixedPointMathLib.divWadDown(initialIncentivesOffered, maxIncentivesOffered));
 
-        return initialIncentivesOffered * adjustedIncentiveMultiplier / 1e18;
+        return FixedPointMathLib.mulWadDown(initialIncentivesOffered, adjustedIncentiveMultiplier);
     }
 
     function getIncentiveToProtocolFeeAmountForIPOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {

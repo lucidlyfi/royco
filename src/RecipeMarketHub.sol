@@ -511,6 +511,16 @@ contract RecipeMarketHub is RecipeMarketHubBase {
         // Number of incentives offered by the IP
         uint256 numIncentives = offer.incentivesOffered.length;
 
+        // uint256 numIncentives;
+        // /// @solidity memory-safe-assembly
+        // assembly ("memory-safe") {
+        //     let baseSlot := add(offer.slot, 6)
+        //     let memPtr := mload(0x40)
+        //     mstore(memPtr, baseSlot)
+        //     let incentivesSlot := keccak256(memPtr, 0x20)
+        //     numIncentives := sload(incentivesSlot)
+        // }
+
         // Arrays to store incentives and fee amounts to be paid
         uint256[] memory incentiveAmountsPaid = new uint256[](numIncentives);
         uint256[] memory protocolFeesPaid = new uint256[](numIncentives);
@@ -560,6 +570,31 @@ contract RecipeMarketHub is RecipeMarketHubBase {
 
         emit IPOfferFilled(offerHash, fillAmount, address(wallet), incentiveAmountsPaid, protocolFeesPaid, frontendFeesPaid);
     }
+
+    // /// @notice Filling multiple IPGda offers
+    // /// @param ipOfferHashes The hashes of the IPGda offers to fill
+    // /// @param fillAmounts The amounts of input tokens to fill the corresponding offers with
+    // /// @param fundingVault The address of the vault where the input tokens will be withdrawn from (vault not used if set to address(0))
+    // /// @param frontendFeeRecipient The address that will receive the frontend fee
+    // function fillIPGdaOffers(
+    //     bytes32[] calldata ipOfferHashes,
+    //     uint256[] calldata fillAmounts,
+    //     address fundingVault,
+    //     address frontendFeeRecipient
+    // )
+    //     external
+    //     payable
+    //     nonReentrant
+    //     offersNotPaused
+    // {
+    //     if (ipOfferHashes.length != fillAmounts.length) {
+    //         revert ArrayLengthMismatch();
+    //     }
+
+    //     for (uint256 i = 0; i < ipOfferHashes.length; ++i) {
+    //         _fillIPGdaOffer(ipOfferHashes[i], fillAmounts[i], fundingVault, frontendFeeRecipient);
+    //     }
+    // }
 
     /// @notice Fill an IP Gda offer, transferring the IP's incentives to the AP, withdrawing the AP from their funding vault into a fresh weiroll wallet, and
     /// executing the weiroll recipe
