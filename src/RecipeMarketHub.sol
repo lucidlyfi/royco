@@ -668,12 +668,15 @@ contract RecipeMarketHub is RecipeMarketHubBase {
             frontendFeesPaid[i] = offer.incentiveToFrontendFeeAmount[incentive].mulWadDown(fillPercentage);
 
             // Calculate incentives to give based on percentage of fill
-
+            uint256 minMultiplier = 1e18;
+            uint256 maxMultiplier = FixedPointMathLib.divWadDown(offer.initialIncentiveAmountsOffered[incentive], offer.incentiveAmountsOffered[incentive]);
+            uint256 scaledMultiplier = minMultiplier
+                + FixedPointMathLib.mulWadDown(incentiveMultiplier, FixedPointMathLib.divWadDown(maxMultiplier - minMultiplier, type(uint256).max));
             uint256 adjustedIncentiveMultiplier = FixedPointMathLib.mulWadDown(
                 incentiveMultiplier, FixedPointMathLib.divWadDown(offer.initialIncentiveAmountsOffered[incentive], offer.incentiveAmountsOffered[incentive])
             );
 
-            incentiveAmountsPaid[i] = offer.initialIncentiveAmountsOffered[incentive].mulWadDown(adjustedIncentiveMultiplier).mulWadDown(fillPercentage);
+            incentiveAmountsPaid[i] = offer.initialIncentiveAmountsOffered[incentive].mulWadDown(scaledMultiplier).mulWadDown(fillPercentage);
 
             if (market.rewardStyle == RewardStyle.Upfront) {
                 // Push incentives to AP and account fees on fill in an upfront market

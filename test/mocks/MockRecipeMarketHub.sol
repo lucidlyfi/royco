@@ -52,14 +52,16 @@ contract MockRecipeMarketHub is RecipeMarketHub {
             offerHashToIPGdaOffer[offerHash].gdaParams.lastAuctionStartTime,
             fillAmount
         );
-
         uint256 initialIncentivesOffered = offerHashToIPGdaOffer[offerHash].initialIncentiveAmountsOffered[tokenAddress];
-        uint256 maxIncentivesOffered = offerHashToIPGdaOffer[offerHash].incentiveAmountsOffered[tokenAddress];
+        uint256 minMultiplier = 1e18;
+        uint256 maxMultiplier = FixedPointMathLib.divWadDown(
+            offerHashToIPGdaOffer[offerHash].initialIncentiveAmountsOffered[tokenAddress],
+            offerHashToIPGdaOffer[offerHash].incentiveAmountsOffered[tokenAddress]
+        );
+        uint256 scaledMultiplier =
+            minMultiplier + FixedPointMathLib.mulWadDown(incentiveMultiplier, FixedPointMathLib.divWadDown(maxMultiplier - minMultiplier, type(uint256).max));
 
-        uint256 adjustedIncentiveMultiplier =
-            FixedPointMathLib.mulWadDown(incentiveMultiplier, FixedPointMathLib.divWadDown(initialIncentivesOffered, maxIncentivesOffered));
-
-        return FixedPointMathLib.mulWadDown(initialIncentivesOffered, adjustedIncentiveMultiplier);
+        return FixedPointMathLib.mulWadDown(initialIncentivesOffered, scaledMultiplier);
     }
 
     function getIncentiveToProtocolFeeAmountForIPOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
