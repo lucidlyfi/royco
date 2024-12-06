@@ -98,13 +98,16 @@ abstract contract RecipeMarketHubBase is Owned, ReentrancyGuardTransient {
         uint256 offerID;
         bytes32 targetMarketHash;
         address ip;
+        bool isGdaOffer;
         uint256 expiry;
         uint256 quantity;
         uint256 remainingQuantity;
         address[] incentivesOffered;
+        mapping(address => uint256) initialIncentiveAmountsOffered; // amounts to be allocated to APs when auction starts (per incentive)
         mapping(address => uint256) incentiveAmountsOffered; // amounts to be allocated to APs (per incentive)
         mapping(address => uint256) incentiveToProtocolFeeAmount; // amounts to be allocated to protocolFeeClaimant (per incentive)
         mapping(address => uint256) incentiveToFrontendFeeAmount; // amounts to be allocated to frontend provider (per incentive)
+        GDAParams gdaParams;
     }
 
     /// @custom:field offerID Set to numAPOffers (zero-indexed) - ordered separately for AP and IP offers
@@ -223,12 +226,14 @@ abstract contract RecipeMarketHubBase is Owned, ReentrancyGuardTransient {
         bytes32 indexed offerHash,
         bytes32 indexed marketHash,
         address indexed ip,
+        bool isGdaOffer,
         uint256 quantity,
         address[] incentivesOffered,
         uint256[] incentiveAmounts,
         uint256[] protocolFeeAmounts,
         uint256[] frontendFeeAmounts,
-        uint256 expiry
+        uint256 expiry,
+        GDAParams gdaParams
     );
 
     event IPGdaOfferCreated(
@@ -424,16 +429,31 @@ abstract contract RecipeMarketHubBase is Owned, ReentrancyGuardTransient {
         uint256 offerID,
         bytes32 targetMarketHash,
         address ip,
+        bool isGdaOffer,
         uint256 expiry,
         uint256 quantity,
         address[] calldata incentivesOffered,
-        uint256[] memory incentiveAmountsOffered
+        uint256[] memory incentiveAmountsOffered,
+        GDAParams calldata gdaParams
     )
         public
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encodePacked(offerID, targetMarketHash, ip, expiry, quantity, incentivesOffered, incentiveAmountsOffered));
+        return keccak256(
+            abi.encodePacked(
+                offerID,
+                targetMarketHash,
+                ip,
+                expiry,
+                quantity,
+                incentivesOffered,
+                incentiveAmountsOffered,
+                gdaParams.initialDiscountMultiplier,
+                gdaParams.decayRate,
+                gdaParams.emissionRate
+            )
+        );
     }
 
     /// @notice Calculates the hash of an IPGda offer

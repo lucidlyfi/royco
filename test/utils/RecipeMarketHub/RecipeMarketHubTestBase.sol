@@ -86,12 +86,16 @@ contract RecipeMarketHubTestBase is RoycoTestBase, RecipeUtils {
         mockIncentiveToken.mint(_ipAddress, 1000e18);
         mockIncentiveToken.approve(address(recipeMarketHub), 1000e18);
 
+        RecipeMarketHubBase.GDAParams memory gdaParams;
+
         offerHash = recipeMarketHub.createIPOffer(
             _targetMarketHash, // Referencing the created market
             _quantity, // Total input token amount
+            false,
             block.timestamp + 30 days, // Expiry time
             tokensOffered, // Incentive tokens offered
-            incentiveAmountsOffered // Incentive amounts offered
+            incentiveAmountsOffered, // Incentive amounts offered
+            gdaParams
         );
     }
 
@@ -118,9 +122,10 @@ contract RecipeMarketHubTestBase is RoycoTestBase, RecipeUtils {
         mockIncentiveToken.mint(_ipAddress, 1000e18);
         mockIncentiveToken.approve(address(recipeMarketHub), 1000e18);
 
-        offerHash = recipeMarketHub.createIPGdaOffer(
+        offerHash = recipeMarketHub.createIPOffer(
             _targetMarketHash, // Referencing the created market
             _quantity, // Total input token amount
+            true,
             block.timestamp + 30 days, // Expiry time
             tokensOffered, // Incentive tokens offered
             incentiveAmountsOffered, // Incentive amounts offered
@@ -145,13 +150,16 @@ contract RecipeMarketHubTestBase is RoycoTestBase, RecipeUtils {
 
         mockIncentiveToken.mint(_ipAddress, 1000e18);
         mockIncentiveToken.approve(address(recipeMarketHub), 1000e18);
+        RecipeMarketHubBase.GDAParams memory gdaParams;
 
         offerHash = recipeMarketHub.createIPOffer(
             _targetMarketHash, // Referencing the created market
             _quantity, // Total input token amount
+            false,
             _expiry, // Expiry time
             tokensOffered, // Incentive tokens offered
-            incentiveAmountsOffered // Incentive amounts offered
+            incentiveAmountsOffered, // Incentive amounts offered
+            gdaParams
         );
     }
 
@@ -179,9 +187,10 @@ contract RecipeMarketHubTestBase is RoycoTestBase, RecipeUtils {
         mockIncentiveToken.mint(_ipAddress, 1000e18);
         mockIncentiveToken.approve(address(recipeMarketHub), 1000e18);
 
-        offerHash = recipeMarketHub.createIPGdaOffer(
+        offerHash = recipeMarketHub.createIPOffer(
             _targetMarketHash, // Referencing the created market
             _quantity, // Total input token amount
+            true,
             _expiry, // Expiry time
             tokensOffered, // Incentive tokens offered
             incentiveAmountsOffered, // Incentive amounts offered
@@ -316,12 +325,16 @@ contract RecipeMarketHubTestBase is RoycoTestBase, RecipeUtils {
         tokensOffered[0] = address(points);
         incentiveAmountsOffered[0] = 1000e18;
 
+        RecipeMarketHubBase.GDAParams memory gdaParams;
+
         offerHash = recipeMarketHub.createIPOffer(
             _targetMarketHash, // Referencing the created market
             _quantity, // Total input token amount
+            true,
             block.timestamp + 30 days, // Expiry time
             tokensOffered, // Incentive tokens offered
-            incentiveAmountsOffered // Incentive amounts offered
+            incentiveAmountsOffered, // Incentive amounts offered
+            gdaParams
         );
     }
 
@@ -356,9 +369,10 @@ contract RecipeMarketHubTestBase is RoycoTestBase, RecipeUtils {
         gdaParams.emissionRate = SafeCastLib.toInt256(1);
         gdaParams.lastAuctionStartTime = 0;
 
-        offerHash = recipeMarketHub.createIPGdaOffer(
+        offerHash = recipeMarketHub.createIPOffer(
             _targetMarketHash, // Referencing the created market
             _quantity, // Total input token amount
+            true,
             block.timestamp + 30 days, // Expiry time
             tokensOffered, // Incentive tokens offered
             incentiveAmountsOffered, // Incentive amounts offered

@@ -29,7 +29,7 @@ contract MockRecipeMarketHub is RecipeMarketHub {
     }
 
     function fillIPGdaOffers(bytes32 offerHash, uint256 fillAmount, address fundingVault, address frontendFeeRecipient) external {
-        _fillIPGdaOffer(offerHash, fillAmount, fundingVault, frontendFeeRecipient);
+        _fillIPOffer(offerHash, fillAmount, fundingVault, frontendFeeRecipient);
     }
 
     function fillAPOffers(APOffer calldata offer, uint256 fillAmount, address frontendFeeRecipient) external {
@@ -42,14 +42,14 @@ contract MockRecipeMarketHub is RecipeMarketHub {
     }
 
     function getMaxIncentiveAmountsOfferedForIPGdaOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
-        return offerHashToIPGdaOffer[offerHash].incentiveAmountsOffered[tokenAddress];
+        return offerHashToIPOffer[offerHash].incentiveAmountsOffered[tokenAddress];
     }
 
     function getIncentiveAmountsOfferedForIPGdaOffer(bytes32 offerHash, address tokenAddress, uint256 fillAmount) external view returns (uint256) {
         uint256 incentiveMultiplier = GradualDutchAuction._calculateIncentiveMultiplier(
-            offerHashToIPGdaOffer[offerHash].gdaParams.decayRate,
-            offerHashToIPGdaOffer[offerHash].gdaParams.emissionRate,
-            offerHashToIPGdaOffer[offerHash].gdaParams.lastAuctionStartTime,
+            offerHashToIPOffer[offerHash].gdaParams.decayRate,
+            offerHashToIPOffer[offerHash].gdaParams.emissionRate,
+            offerHashToIPOffer[offerHash].gdaParams.lastAuctionStartTime,
             fillAmount
         );
 
@@ -67,7 +67,7 @@ contract MockRecipeMarketHub is RecipeMarketHub {
     }
 
     function getIncentiveToProtocolFeeAmountForIPGdaOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
-        return offerHashToIPGdaOffer[offerHash].incentiveToProtocolFeeAmount[tokenAddress];
+        return offerHashToIPOffer[offerHash].incentiveToProtocolFeeAmount[tokenAddress];
     }
 
     function getIncentiveToFrontendFeeAmountForIPOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
@@ -75,7 +75,7 @@ contract MockRecipeMarketHub is RecipeMarketHub {
     }
 
     function getIncentiveToFrontendFeeAmountForIPGdaOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
-        return offerHashToIPGdaOffer[offerHash].incentiveToFrontendFeeAmount[tokenAddress];
+        return offerHashToIPOffer[offerHash].incentiveToFrontendFeeAmount[tokenAddress];
     }
 
     // Single getter function that returns the entire LockedRewardParams struct as a tuple

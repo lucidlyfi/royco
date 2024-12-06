@@ -112,22 +112,34 @@ contract ScenarioTest is Test {
 
         // Mock the previewRateAfterDeposit function
         vm.mockCall(
-            address(targetVault), abi.encodeWithSignature("rewardToInterval(address)", address(baseToken)), abi.encode(uint32(1 days), uint32(10 days), uint96(0))
+            address(targetVault),
+            abi.encodeWithSignature("rewardToInterval(address)", address(baseToken)),
+            abi.encode(uint32(1 days), uint32(10 days), uint96(0))
         );
         vm.mockCall(
-            address(targetVault), abi.encodeWithSelector(WrappedVault.previewRateAfterDeposit.selector, address(baseToken), uint256(100 * 1e18)), abi.encode(2e18)
+            address(targetVault),
+            abi.encodeWithSelector(WrappedVault.previewRateAfterDeposit.selector, address(baseToken), uint256(100 * 1e18)),
+            abi.encode(2e18)
         );
         vm.mockCall(
-            address(targetVault2), abi.encodeWithSignature("rewardToInterval(address)", address(baseToken)), abi.encode(uint32(1 days), uint32(10 days), uint96(0))
+            address(targetVault2),
+            abi.encodeWithSignature("rewardToInterval(address)", address(baseToken)),
+            abi.encode(uint32(1 days), uint32(10 days), uint96(0))
         );
         vm.mockCall(
-            address(targetVault2), abi.encodeWithSelector(WrappedVault.previewRateAfterDeposit.selector, address(baseToken), uint256(100 * 1e18)), abi.encode(2e18)
+            address(targetVault2),
+            abi.encodeWithSelector(WrappedVault.previewRateAfterDeposit.selector, address(baseToken), uint256(100 * 1e18)),
+            abi.encode(2e18)
         );
         vm.mockCall(
-            address(targetVault3), abi.encodeWithSignature("rewardToInterval(address)", address(baseToken)), abi.encode(uint32(1 days), uint32(10 days), uint96(0))
+            address(targetVault3),
+            abi.encodeWithSignature("rewardToInterval(address)", address(baseToken)),
+            abi.encode(uint32(1 days), uint32(10 days), uint96(0))
         );
         vm.mockCall(
-            address(targetVault3), abi.encodeWithSelector(WrappedVault.previewRateAfterDeposit.selector, address(baseToken), uint256(100 * 1e18)), abi.encode(2e18)
+            address(targetVault3),
+            abi.encodeWithSelector(WrappedVault.previewRateAfterDeposit.selector, address(baseToken), uint256(100 * 1e18)),
+            abi.encode(2e18)
         );
 
         uint256[] memory fillAmounts = new uint256[](3);
@@ -154,6 +166,8 @@ contract ScenarioTest is Test {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(baseToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Upfront);
 
+        RecipeMarketHubBase.GDAParams memory gdaParams;
+
         uint256 offerAmount = 100_000e18; // Offer amount requested
         uint256 fillAmount = 1000e18; // Fill amount
 
@@ -170,9 +184,11 @@ contract ScenarioTest is Test {
         bytes32 offerHash = recipeMarketHub.createIPOffer(
             marketHash, // Referencing the created market
             offerAmount, // Total input token amount
+            false,
             block.timestamp + 30 days, // Expiry time
             tokensOffered, // Incentive tokens offered
-            incentiveAmountsOffered // Incentive amounts offered
+            incentiveAmountsOffered, // Incentive amounts offered,
+            gdaParams
         );
         vm.stopPrank();
 
@@ -187,7 +203,7 @@ contract ScenarioTest is Test {
         recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
     }
 }

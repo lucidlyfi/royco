@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "src/base/RecipeMarketHubBase.sol";
-import {Points} from "src/Points.sol";
+import { Points } from "src/Points.sol";
 import { RecipeMarketHubTestBase } from "../../utils/RecipeMarketHub/RecipeMarketHubTestBase.sol";
 
 contract Test_Claim_RecipeMarketHub is RecipeMarketHubTestBase {
@@ -24,7 +24,7 @@ contract Test_Claim_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Forfeitable);
 
-        uint256 offerAmount = 100000e18; // Offer amount requested
+        uint256 offerAmount = 100_000e18; // Offer amount requested
         uint256 fillAmount = 1000e18; // Fill amount
 
         // Create a fillable IP offer
@@ -43,7 +43,7 @@ contract Test_Claim_RecipeMarketHub is RecipeMarketHubTestBase {
         recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         address weirollWallet = address(uint160(uint256(vm.getRecordedLogs()[0].topics[2])));
@@ -69,7 +69,7 @@ contract Test_Claim_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Forfeitable);
 
-        uint256 offerAmount = 100000e18; // Offer amount requested
+        uint256 offerAmount = 100_000e18; // Offer amount requested
         uint256 fillAmount = 1000e18; // Fill amount
 
         // Mint liquidity tokens to the AP to fill the offer
@@ -112,7 +112,7 @@ contract Test_Claim_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Forfeitable);
 
-        uint256 offerAmount = 100000e18; // Offer amount requested
+        uint256 offerAmount = 100_000e18; // Offer amount requested
         uint256 fillAmount = 1000e18; // Fill amount
 
         // Mint liquidity tokens to the AP to fill the offer
@@ -144,7 +144,7 @@ contract Test_Claim_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 frontendFee = recipeMarketHub.minimumFrontendFee();
         bytes32 marketHash = recipeMarketHub.createMarket(address(mockLiquidityToken), 30 days, frontendFee, NULL_RECIPE, NULL_RECIPE, RewardStyle.Forfeitable);
 
-        uint256 offerAmount = 100000e18; // Offer amount requested
+        uint256 offerAmount = 100_000e18; // Offer amount requested
         uint256 fillAmount = 1000e18; // Fill amount
 
         // Mint liquidity tokens to the AP to fill the offer

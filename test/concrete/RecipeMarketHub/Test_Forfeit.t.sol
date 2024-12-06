@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "src/base/RecipeMarketHubBase.sol";
-import {Points} from "src/RecipeMarketHub.sol";
+import { Points } from "src/RecipeMarketHub.sol";
 import { RecipeMarketHubTestBase } from "../../utils/RecipeMarketHub/RecipeMarketHubTestBase.sol";
 
 contract Test_Forfeit_RecipeMarketHub is RecipeMarketHubTestBase {
@@ -43,7 +43,7 @@ contract Test_Forfeit_RecipeMarketHub is RecipeMarketHubTestBase {
         recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         address weirollWallet = address(uint160(uint256(vm.getRecordedLogs()[0].topics[2])));
@@ -90,7 +90,7 @@ contract Test_Forfeit_RecipeMarketHub is RecipeMarketHubTestBase {
         recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         address weirollWallet = address(uint160(uint256(vm.getRecordedLogs()[0].topics[2])));
@@ -134,7 +134,7 @@ contract Test_Forfeit_RecipeMarketHub is RecipeMarketHubTestBase {
         recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         // Extract the Weiroll wallet address (the 'to' address from the Transfer event - third event in logs)
@@ -149,7 +149,7 @@ contract Test_Forfeit_RecipeMarketHub is RecipeMarketHubTestBase {
         recipeMarketHub.forfeit(weirollWallet, true);
         vm.stopPrank();
 
-        (,,,,, uint256 newResultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,,, uint256 newResultingRemainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(newResultingRemainingQuantity, resultingQuantity);
 
         // Check the weiroll wallet was deleted from recipeMarketHub state
@@ -182,7 +182,7 @@ contract Test_Forfeit_RecipeMarketHub is RecipeMarketHubTestBase {
         recipeMarketHub.fillIPOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
 
-        (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
 
         // Extract the Weiroll wallet address (the 'to' address from the Transfer event - third event in logs)
@@ -192,7 +192,7 @@ contract Test_Forfeit_RecipeMarketHub is RecipeMarketHubTestBase {
         recipeMarketHub.forfeit(weirollWallet, false);
         vm.stopPrank();
 
-        (,,,,, uint256 newResultingRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,,, uint256 newResultingRemainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(newResultingRemainingQuantity, resultingQuantity);
 
         // Check the weiroll wallet was deleted from recipeMarketHub state

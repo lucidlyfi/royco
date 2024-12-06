@@ -30,7 +30,7 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
 
         // Create the IP offer
         bytes32 offerHash = createIPOffer_WithTokens(marketHash, quantity, IP_ADDRESS);
-        (,,,,, uint256 initialRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,,, uint256 initialRemainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(initialRemainingQuantity, quantity);
 
         // Use the helper function to retrieve values from storage
@@ -49,7 +49,8 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         // Check if offer was deleted from mapping on upfront
-        (,bytes32 _targetmarketHash, address _ip, uint256 _expiry, uint256 _quantity, uint256 _remainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (, bytes32 _targetmarketHash, address _ip,, uint256 _expiry, uint256 _quantity, uint256 _remainingQuantity,) =
+            recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(_targetmarketHash, bytes32(0));
         assertEq(_ip, address(0));
         assertEq(_expiry, 0);
@@ -67,7 +68,7 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
 
         // Create the IP offer
         bytes32 offerHash = createIPOffer_WithTokens(marketHash, quantity, IP_ADDRESS);
-        (,,,,, uint256 initialRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,,, uint256 initialRemainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(initialRemainingQuantity, quantity);
 
         // Mint liquidity tokens to the AP to fill the offer
@@ -81,7 +82,7 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         recipeMarketHub.fillIPOffers(offerHash, quantity.mulWadDown(5e17), address(0), DAN_ADDRESS);
         vm.stopPrank();
 
-        (,,,,, uint256 remainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,,, uint256 remainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
 
         // Calculate amount to be refunded
         uint256 protocolFeeStored = recipeMarketHub.getIncentiveToProtocolFeeAmountForIPOffer(offerHash, address(mockIncentiveToken));
@@ -104,7 +105,8 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         // Check if offer was deleted from mapping
-        (,bytes32 _targetmarketHash, address _ip, uint256 _expiry, uint256 _quantity, uint256 _remainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (, bytes32 _targetmarketHash, address _ip,, uint256 _expiry, uint256 _quantity, uint256 _remainingQuantity,) =
+            recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(_targetmarketHash, bytes32(0));
         assertEq(_ip, address(0));
         assertEq(_expiry, 0);
@@ -122,7 +124,7 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
 
         // Create the IP offer
         bytes32 offerHash = createIPOffer_WithTokens(marketHash, quantity, IP_ADDRESS);
-        (,,,,, uint256 initialRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,,, uint256 initialRemainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(initialRemainingQuantity, quantity);
 
         // Mint liquidity tokens to the AP to fill the offer
@@ -136,7 +138,7 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         recipeMarketHub.fillIPOffers(offerHash, quantity.mulWadDown(5e17), address(0), DAN_ADDRESS);
         vm.stopPrank();
 
-        (,,,,, uint256 remainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,,, uint256 remainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
 
         // Calculate amount to be refunded
         uint256 protocolFeeStored = recipeMarketHub.getIncentiveToProtocolFeeAmountForIPOffer(offerHash, address(mockIncentiveToken));
@@ -159,7 +161,8 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         // Check if offer was deleted from mapping
-        (,bytes32 _targetmarketHash, address _ip, uint256 _expiry, uint256 _quantity, uint256 _remainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (, bytes32 _targetmarketHash, address _ip,, uint256 _expiry, uint256 _quantity, uint256 _remainingQuantity,) =
+            recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(_targetmarketHash, bytes32(0));
         assertEq(_ip, address(0));
         assertGt(_expiry, 0);
@@ -177,7 +180,7 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
 
         // Create the IP offer
         bytes32 offerHash = createIPOffer_WithTokens(marketHash, quantity, IP_ADDRESS);
-        (,,,,, uint256 initialRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,,, uint256 initialRemainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(initialRemainingQuantity, quantity);
 
         // Mint liquidity tokens to the AP to fill the offer
@@ -191,7 +194,7 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         recipeMarketHub.fillIPOffers(offerHash, quantity.mulWadDown(5e17), address(0), DAN_ADDRESS);
         vm.stopPrank();
 
-        (,,,,, uint256 remainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,,, uint256 remainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
 
         // Calculate amount to be refunded
         uint256 protocolFeeStored = recipeMarketHub.getIncentiveToProtocolFeeAmountForIPOffer(offerHash, address(mockIncentiveToken));
@@ -214,7 +217,8 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         // Check if offer was deleted from mapping
-        (,bytes32 _targetmarketHash, address _ip, uint256 _expiry, uint256 _quantity, uint256 _remainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (, bytes32 _targetmarketHash, address _ip,, uint256 _expiry, uint256 _quantity, uint256 _remainingQuantity,) =
+            recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(_targetmarketHash, bytes32(0));
         assertEq(_ip, address(0));
         assertGt(_expiry, 0);
@@ -232,7 +236,7 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
 
         // Create the IP offer
         (bytes32 offerHash,) = createIPOffer_WithPoints(marketHash, quantity, IP_ADDRESS);
-        (,,,,, uint256 initialRemainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,,, uint256 initialRemainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(initialRemainingQuantity, quantity);
 
         vm.expectEmit(true, false, false, true, address(recipeMarketHub));
@@ -243,7 +247,8 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         // Check if offer was deleted from mapping
-        (,bytes32 _targetmarketHash, address _ip, uint256 _expiry, uint256 _quantity, uint256 _remainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (, bytes32 _targetmarketHash, address _ip,, uint256 _expiry, uint256 _quantity, uint256 _remainingQuantity,) =
+            recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(_targetmarketHash, bytes32(0));
         assertEq(_ip, address(0));
         assertEq(_expiry, 0);
@@ -282,7 +287,7 @@ contract Test_Cancel_IPOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.stopPrank();
 
         // Should be completely filled and uncancellable
-        (,,,,, uint256 remainingQuantity) = recipeMarketHub.offerHashToIPOffer(offerHash);
+        (,,,,,, uint256 remainingQuantity,) = recipeMarketHub.offerHashToIPOffer(offerHash);
         assertEq(remainingQuantity, 0);
 
         vm.startPrank(IP_ADDRESS);

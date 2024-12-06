@@ -43,6 +43,8 @@ contract Test_IPOfferCreation_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 protocolFeeAmount = incentiveAmount.mulWadDown(recipeMarketHub.protocolFee());
         uint256 frontendFeeAmount = incentiveAmount.mulWadDown(frontendFee);
 
+        RecipeMarketHubBase.GDAParams memory gdaParams;
+
         // Expect the IPOfferCreated event to be emitted
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
         emit RecipeMarketHubBase.IPOfferCreated(
@@ -50,12 +52,14 @@ contract Test_IPOfferCreation_RecipeMarketHub is RecipeMarketHubTestBase {
             bytes32(0),
             marketHash, // Market ID
             address(0),
+            false,
             quantity, // Total quantity
             tokensOffered, // Tokens offered
             incentiveAmountsOffered, // Amounts offered
             new uint256[](0),
             new uint256[](0),
-            expiry // Expiry time
+            expiry, // Expiry time
+            gdaParams
         );
 
         // MockERC20 should track calls to `transferFrom`
@@ -70,9 +74,11 @@ contract Test_IPOfferCreation_RecipeMarketHub is RecipeMarketHubTestBase {
         bytes32 offerHash = recipeMarketHub.createIPOffer(
             marketHash, // Referencing the created market
             quantity, // Total input token amount
+            false,
             expiry, // Expiry time
             tokensOffered, // Incentive tokens offered
-            incentiveAmountsOffered // Incentive amounts offered
+            incentiveAmountsOffered, // Incentive amounts offered
+            gdaParams
         );
 
         // Assertions on the offer
@@ -145,9 +151,10 @@ contract Test_IPOfferCreation_RecipeMarketHub is RecipeMarketHubTestBase {
         );
 
         // Create the IP offer
-        bytes32 offerHash = recipeMarketHub.createIPGdaOffer(
+        bytes32 offerHash = recipeMarketHub.createIPOffer(
             marketHash, // Referencing the created market
             quantity, // Total input token amount
+            true,
             expiry, // Expiry time
             tokensOffered, // Incentive tokens offered
             incentiveAmountsOffered, // Incentive amounts offered
@@ -195,18 +202,22 @@ contract Test_IPOfferCreation_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 protocolFeeAmount = incentiveAmount.mulWadDown(recipeMarketHub.protocolFee());
         uint256 frontendFeeAmount = incentiveAmount.mulWadDown(frontendFee);
 
+        RecipeMarketHubBase.GDAParams memory gdaParams;
+
         vm.expectEmit(false, false, false, false, address(recipeMarketHub));
         emit RecipeMarketHubBase.IPOfferCreated(
             0, // Expected offer ID (starts at 0)
             bytes32(0),
             marketHash, // Market ID
             address(0),
+            false,
             quantity, // Total quantity
             tokensOffered, // Tokens offered
             incentiveAmountsOffered, // Amounts offered
             new uint256[](0),
             new uint256[](0),
-            expiry // Expiry time
+            expiry, // Expiry time
+            gdaParams
         );
 
         vm.startPrank(ALICE_ADDRESS);
@@ -214,9 +225,11 @@ contract Test_IPOfferCreation_RecipeMarketHub is RecipeMarketHubTestBase {
         bytes32 offerHash = recipeMarketHub.createIPOffer(
             marketHash, // Referencing the created market
             quantity, // Total input token amount
+            false,
             expiry, // Expiry time
             tokensOffered, // Incentive tokens offered
-            incentiveAmountsOffered // Incentive amounts offered
+            incentiveAmountsOffered, // Incentive amounts offered
+            gdaParams
         );
         vm.stopPrank();
 
@@ -236,38 +249,49 @@ contract Test_IPOfferCreation_RecipeMarketHub is RecipeMarketHubTestBase {
     }
 
     function test_RevertIf_CreateIPOfferWithNonExistentMarket() external {
+        RecipeMarketHubBase.GDAParams memory gdaParams;
         vm.expectRevert(abi.encodeWithSelector(RecipeMarketHubBase.MarketDoesNotExist.selector));
         recipeMarketHub.createIPOffer(
             0, // Non-existent market ID
             100_000e18, // Quantity
+            false,
             block.timestamp + 1 days, // Expiry time
             new address[](1), // Empty tokens offered array
-            new uint256[](1) // Empty token amounts array
+            new uint256[](1), // Empty token amounts array
+            gdaParams
         );
     }
 
     function test_RevertIf_CreateIPOfferWithExpiredOffer() external {
         vm.warp(1_231_006_505); // set block timestamp
+
+        RecipeMarketHubBase.GDAParams memory gdaParams;
+
         bytes32 marketHash = createMarket();
         vm.expectRevert(abi.encodeWithSelector(RecipeMarketHubBase.CannotPlaceExpiredOffer.selector));
         recipeMarketHub.createIPOffer(
             marketHash,
             100_000e18, // Quantity
+            false,
             block.timestamp - 1 seconds, // Expired timestamp
             new address[](1), // Empty tokens offered array
-            new uint256[](1) // Empty token amounts array
+            new uint256[](1), // Empty token amounts array
+            gdaParams
         );
     }
 
     function test_RevertIf_CreateIPOfferWithZeroQuantity() external {
         bytes32 marketHash = createMarket();
+        RecipeMarketHubBase.GDAParams memory gdaParams;
         vm.expectRevert(abi.encodeWithSelector(RecipeMarketHubBase.CannotPlaceZeroQuantityOffer.selector));
         recipeMarketHub.createIPOffer(
             marketHash,
             0, // Zero quantity
+            false,
             block.timestamp + 1 days, // Expiry time
             new address[](1), // Empty tokens offered array
-            new uint256[](1) // Empty token amounts array
+            new uint256[](1), // Empty token amounts array
+            gdaParams
         );
     }
 
@@ -278,14 +302,17 @@ contract Test_IPOfferCreation_RecipeMarketHub is RecipeMarketHubTestBase {
         tokensOffered[0] = address(mockIncentiveToken);
         uint256[] memory incentiveAmountsOffered = new uint256[](2);
         incentiveAmountsOffered[0] = 1000e18;
+        RecipeMarketHubBase.GDAParams memory gdaParams;
 
         vm.expectRevert(abi.encodeWithSelector(RecipeMarketHubBase.ArrayLengthMismatch.selector));
         recipeMarketHub.createIPOffer(
             marketHash,
             100_000e18, // Quantity
+            false,
             block.timestamp + 1 days, // Expiry time
             tokensOffered, // Mismatched arrays
-            incentiveAmountsOffered
+            incentiveAmountsOffered,
+            gdaParams
         );
     }
 }
