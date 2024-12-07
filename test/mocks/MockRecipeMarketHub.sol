@@ -45,6 +45,10 @@ contract MockRecipeMarketHub is RecipeMarketHub {
         return offerHashToIPGdaOffer[offerHash].incentiveAmountsOffered[tokenAddress];
     }
 
+    function getMinIncentiveAmountsOfferedForIPGdaOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
+        return offerHashToIPGdaOffer[offerHash].initialIncentiveAmountsOffered[tokenAddress];
+    }
+
     function getIncentiveAmountsOfferedForIPGdaOffer(bytes32 offerHash, address tokenAddress, uint256 fillAmount) external view returns (uint256) {
         uint256 incentiveMultiplier = GradualDutchAuction._calculateIncentiveMultiplier(
             offerHashToIPGdaOffer[offerHash].gdaParams.decayRate,
@@ -55,11 +59,11 @@ contract MockRecipeMarketHub is RecipeMarketHub {
         uint256 initialIncentivesOffered = offerHashToIPGdaOffer[offerHash].initialIncentiveAmountsOffered[tokenAddress];
         uint256 minMultiplier = 1e18;
         uint256 maxMultiplier = FixedPointMathLib.divWadDown(
-            offerHashToIPGdaOffer[offerHash].initialIncentiveAmountsOffered[tokenAddress],
-            offerHashToIPGdaOffer[offerHash].incentiveAmountsOffered[tokenAddress]
+            offerHashToIPGdaOffer[offerHash].incentiveAmountsOffered[tokenAddress],
+            offerHashToIPGdaOffer[offerHash].initialIncentiveAmountsOffered[tokenAddress]
         );
         uint256 scaledMultiplier =
-            minMultiplier + FixedPointMathLib.mulWadDown(incentiveMultiplier, FixedPointMathLib.divWadDown(maxMultiplier - minMultiplier, type(uint256).max));
+            minMultiplier + FixedPointMathLib.divWadDown(FixedPointMathLib.mulWadDown(incentiveMultiplier, maxMultiplier - minMultiplier), type(uint256).max);
 
         return FixedPointMathLib.mulWadDown(initialIncentivesOffered, scaledMultiplier);
     }

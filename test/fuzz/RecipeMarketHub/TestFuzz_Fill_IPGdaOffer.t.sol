@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "src/base/RecipeMarketHubBase.sol";
 import "src/WrappedVault.sol";
 
+import { console } from "lib/forge-std/src/console.sol";
 import { MockERC20, ERC20 } from "../../mocks/MockERC20.sol";
 import { MockERC4626 } from "test/mocks/MockERC4626.sol";
 import { RecipeMarketHubTestBase } from "../../utils/RecipeMarketHub/RecipeMarketHubTestBase.sol";
@@ -224,9 +225,11 @@ contract TestFuzz_Fill_IPGdaOffer_RecipeMarketHub is RecipeMarketHubTestBase {
 
         // uint256 expectedIncentiveAmountInLinearFill =
         uint256 fillPercentage = FixedPointMathLib.divWadDown(fillAmount, offerAmount);
-        uint256 totalIncentivesOffered = 1000e18;
+        uint256 totalIncentivesOffered = recipeMarketHub.getMaxIncentiveAmountsOfferedForIPGdaOffer(offerHash, address(mockIncentiveToken));
+        uint256 totalInitialIncentivesOffered = recipeMarketHub.getMinIncentiveAmountsOfferedForIPGdaOffer(offerHash, address(mockIncentiveToken));
 
         uint256 expectedIncentiveAmountInCaseOfLinearFill = FixedPointMathLib.mulWadDown(totalIncentivesOffered, fillPercentage);
+        uint256 expectedIncentiveAmountInCaseOfInitialIncentiveRate = FixedPointMathLib.mulWadDown(totalInitialIncentivesOffered, fillPercentage);
 
         // Expect events for transfers
         vm.expectEmit(true, true, false, true, address(mockIncentiveToken));
@@ -258,6 +261,7 @@ contract TestFuzz_Fill_IPGdaOffer_RecipeMarketHub is RecipeMarketHubTestBase {
 
         // Ensure AP received incentive amount which is always less than max budget
         assertEq(expectedIncentiveAmount <= expectedIncentiveAmountInCaseOfLinearFill, true);
+        assertEq(expectedIncentiveAmount >= expectedIncentiveAmountInCaseOfInitialIncentiveRate, true);
 
         // Ensure weiroll wallet got the liquidity
         assertEq(mockLiquidityToken.balanceOf(weirollWallet), fillAmount);

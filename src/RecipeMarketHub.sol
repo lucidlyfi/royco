@@ -410,7 +410,8 @@ contract RecipeMarketHub is RecipeMarketHubBase {
         for (uint256 i = 0; i < incentivesOffered.length; ++i) {
             address incentive = incentivesOffered[i];
             offer.incentiveAmountsOffered[incentive] = incentiveAmountsOffered[i];
-            offer.initialIncentiveAmountsOffered[incentive] = incentiveAmountsOffered[i] * offer.gdaParams.initialDiscountMultiplier / 1e18;
+            offer.initialIncentiveAmountsOffered[incentive] =
+                FixedPointMathLib.mulWadDown(incentiveAmountsOffered[i], offer.gdaParams.initialDiscountMultiplier);
             offer.incentiveToProtocolFeeAmount[incentive] = protocolFeesToBePaid[i];
             offer.incentiveToFrontendFeeAmount[incentive] = frontendFeesToBePaid[i];
         }
@@ -569,31 +570,6 @@ contract RecipeMarketHub is RecipeMarketHubBase {
         emit IPOfferFilled(offerHash, msg.sender, fillAmount, address(wallet), incentiveAmountsPaid, protocolFeesPaid, frontendFeesPaid);
     }
 
-    // /// @notice Filling multiple IPGda offers
-    // /// @param ipOfferHashes The hashes of the IPGda offers to fill
-    // /// @param fillAmounts The amounts of input tokens to fill the corresponding offers with
-    // /// @param fundingVault The address of the vault where the input tokens will be withdrawn from (vault not used if set to address(0))
-    // /// @param frontendFeeRecipient The address that will receive the frontend fee
-    // function fillIPGdaOffers(
-    //     bytes32[] calldata ipOfferHashes,
-    //     uint256[] calldata fillAmounts,
-    //     address fundingVault,
-    //     address frontendFeeRecipient
-    // )
-    //     external
-    //     payable
-    //     nonReentrant
-    //     offersNotPaused
-    // {
-    //     if (ipOfferHashes.length != fillAmounts.length) {
-    //         revert ArrayLengthMismatch();
-    //     }
-
-    //     for (uint256 i = 0; i < ipOfferHashes.length; ++i) {
-    //         _fillIPGdaOffer(ipOfferHashes[i], fillAmounts[i], fundingVault, frontendFeeRecipient);
-    //     }
-    // }
-
     /// @notice Fill an IP Gda offer, transferring the IP's incentives to the AP, withdrawing the AP from their funding vault into a fresh weiroll wallet, and
     /// executing the weiroll recipe
     function _fillIPGdaOffer(bytes32 offerHash, uint256 fillAmount, address fundingVault, address frontendFeeRecipient) internal {
@@ -669,12 +645,9 @@ contract RecipeMarketHub is RecipeMarketHubBase {
 
             // Calculate incentives to give based on percentage of fill
             uint256 minMultiplier = 1e18;
-            uint256 maxMultiplier = FixedPointMathLib.divWadDown(offer.initialIncentiveAmountsOffered[incentive], offer.incentiveAmountsOffered[incentive]);
+            uint256 maxMultiplier = FixedPointMathLib.divWadDown(offer.incentiveAmountsOffered[incentive], offer.initialIncentiveAmountsOffered[incentive]);
             uint256 scaledMultiplier = minMultiplier
                 + FixedPointMathLib.mulWadDown(incentiveMultiplier, FixedPointMathLib.divWadDown(maxMultiplier - minMultiplier, type(uint256).max));
-            uint256 adjustedIncentiveMultiplier = FixedPointMathLib.mulWadDown(
-                incentiveMultiplier, FixedPointMathLib.divWadDown(offer.initialIncentiveAmountsOffered[incentive], offer.incentiveAmountsOffered[incentive])
-            );
 
             incentiveAmountsPaid[i] = offer.initialIncentiveAmountsOffered[incentive].mulWadDown(scaledMultiplier).mulWadDown(fillPercentage);
 
