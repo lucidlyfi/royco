@@ -111,7 +111,7 @@ contract Test_IPOfferCreation_RecipeMarketHub is RecipeMarketHubTestBase {
 
         RecipeMarketHubBase.GDAParams memory gdaParams;
         gdaParams.initialDiscountMultiplier = 10 * 1e18 / 100; // starting incentive rate is 10% of total budget, 90% discount
-        gdaParams.decayRate = unwrap(div(wrap(SafeCastLib.toInt256(1)), wrap(SafeCastLib.toInt256(2))));
+        gdaParams.decayRate = unwrap(div(wrap(SafeCastLib.toInt256(90)), wrap(SafeCastLib.toInt256(100))));
         gdaParams.emissionRate = SafeCastLib.toInt256(1);
         gdaParams.lastAuctionStartTime = 0;
 

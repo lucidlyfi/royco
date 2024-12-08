@@ -39,7 +39,8 @@ library GradualDutchAuction {
         int256 den = FixedPointMathLib.expWad(FixedPointMathLib.sMulWad(decayRate, timeSinceLastAuctionStart));
 
         // int256 totalIncentiveMultiplier = (num1 * exponent) / den;
-        int256 totalIncentiveMultiplier = _mulDiv(num1, exponent, den);
+        // int256 totalIncentiveMultiplier = _mulDiv(num1, exponent, den);
+        int256 totalIncentiveMultiplier = FixedPointMathLib.sDivWad(FixedPointMathLib.sMulWad(num1, exponent), den);
         return SafeCastLib.toUint256(totalIncentiveMultiplier);
     }
 

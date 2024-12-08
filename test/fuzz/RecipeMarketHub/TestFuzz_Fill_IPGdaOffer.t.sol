@@ -231,6 +231,8 @@ contract TestFuzz_Fill_IPGdaOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         uint256 expectedIncentiveAmountInCaseOfLinearFill = FixedPointMathLib.mulWadDown(totalIncentivesOffered, fillPercentage);
         uint256 expectedIncentiveAmountInCaseOfInitialIncentiveRate = FixedPointMathLib.mulWadDown(totalInitialIncentivesOffered, fillPercentage);
 
+        console.log("====================Filling order=====================");
+
         // Expect events for transfers
         vm.expectEmit(true, true, false, true, address(mockIncentiveToken));
         emit ERC20.Transfer(address(recipeMarketHub), BOB_ADDRESS, expectedIncentiveAmount);
@@ -248,6 +250,8 @@ contract TestFuzz_Fill_IPGdaOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.warp(timestamp + timeSinceAuctionStart);
         recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
+
+        console.log("====================Filled order=====================");
 
         (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
@@ -364,19 +368,5 @@ contract TestFuzz_Fill_IPGdaOffer_RecipeMarketHub is RecipeMarketHubTestBase {
 
         // Check the protocol fee recipient received the correct fee
         assertEq(recipeMarketHub.feeClaimantToTokenToAmount(OWNER_ADDRESS, address(mockIncentiveToken)), expectedProtocolFeeAmount);
-    }
-
-    /// @dev equivalent to `(x * y) / d` rounded down.
-    function _mulDiv(int256 x, int256 y, int256 d) internal pure returns (int256 z) {
-        /// @solidity memory-safe-assembly
-        assembly {
-            z := mul(x, y)
-            // equivalent to `require((x == 0 || z / x == y) && !(x == -1 && y == type(uint256).min))`
-            if iszero(gt(or(iszero(x), eq(sdiv(z, x), y)), lt(not(x), eq(y, shl(255, 1))))) {
-                mstore(0x00, 0xf96c5208) // `GDA__MulDivFailed()`
-                revert(0x1c, 0x04)
-            }
-            z := sdiv(z, d)
-        }
     }
 }

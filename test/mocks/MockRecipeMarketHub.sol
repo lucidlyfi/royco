@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
+import { console } from "lib/forge-std/src/console.sol";
 import { RecipeMarketHub } from "src/RecipeMarketHub.sol";
 import { RecipeMarketHubBase, RewardStyle, WeirollWallet } from "src/base/RecipeMarketHubBase.sol";
 import { ERC20 } from "lib/solmate/src/tokens/ERC20.sol";
@@ -72,6 +73,7 @@ contract MockRecipeMarketHub is RecipeMarketHub {
             offerHashToIPGdaOffer[offerHash].gdaParams.lastAuctionStartTime,
             fillAmount
         );
+        console.log("incentiveMultiplier:", incentiveMultiplier);
         uint256 initialIncentivesOffered = offerHashToIPGdaOffer[offerHash].initialIncentiveAmountsOffered[tokenAddress];
         uint256 minMultiplier = 1e18;
         uint256 maxMultiplier = FixedPointMathLib.divWadDown(
@@ -79,8 +81,8 @@ contract MockRecipeMarketHub is RecipeMarketHub {
             offerHashToIPGdaOffer[offerHash].initialIncentiveAmountsOffered[tokenAddress]
         );
         uint256 scaledMultiplier =
-            minMultiplier + FixedPointMathLib.divWadDown(FixedPointMathLib.mulWadDown(incentiveMultiplier, maxMultiplier - minMultiplier), type(uint256).max);
-
+            minMultiplier + FixedPointMathLib.divWadDown(FixedPointMathLib.mulWadDown(incentiveMultiplier, maxMultiplier - minMultiplier), maxMultiplier);
+        console.log("scaledMultiplier:", scaledMultiplier);
         return FixedPointMathLib.mulWadDown(initialIncentivesOffered, scaledMultiplier);
     }
 

@@ -646,8 +646,8 @@ contract RecipeMarketHub is RecipeMarketHubBase {
             // Calculate incentives to give based on percentage of fill
             uint256 minMultiplier = 1e18;
             uint256 maxMultiplier = FixedPointMathLib.divWadDown(offer.incentiveAmountsOffered[incentive], offer.initialIncentiveAmountsOffered[incentive]);
-            uint256 scaledMultiplier = minMultiplier
-                + FixedPointMathLib.mulWadDown(incentiveMultiplier, FixedPointMathLib.divWadDown(maxMultiplier - minMultiplier, type(uint256).max));
+            uint256 scaledMultiplier =
+                minMultiplier + FixedPointMathLib.mulWadDown(incentiveMultiplier, FixedPointMathLib.divWadDown(maxMultiplier - minMultiplier, maxMultiplier));
 
             incentiveAmountsPaid[i] = offer.initialIncentiveAmountsOffered[incentive].mulWadDown(scaledMultiplier).mulWadDown(fillPercentage);
 
