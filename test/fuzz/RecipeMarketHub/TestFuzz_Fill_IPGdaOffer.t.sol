@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "src/base/RecipeMarketHubBase.sol";
 import "src/WrappedVault.sol";
 
-import { console } from "lib/forge-std/src/console.sol";
 import { MockERC20, ERC20 } from "../../mocks/MockERC20.sol";
 import { MockERC4626 } from "test/mocks/MockERC4626.sol";
 import { RecipeMarketHubTestBase } from "../../utils/RecipeMarketHub/RecipeMarketHubTestBase.sol";
@@ -220,6 +219,8 @@ contract TestFuzz_Fill_IPGdaOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         mockLiquidityToken.approve(address(recipeMarketHub), fillAmount);
         vm.stopPrank();
 
+        vm.warp(timestamp + timeSinceAuctionStart);
+
         (, uint256 expectedProtocolFeeAmount, uint256 expectedFrontendFeeAmount, uint256 expectedIncentiveAmount) =
             calculateIPGdaOfferExpectedIncentiveAndFrontendFee(offerHash, offerAmount, fillAmount, address(mockIncentiveToken));
 
@@ -230,8 +231,6 @@ contract TestFuzz_Fill_IPGdaOffer_RecipeMarketHub is RecipeMarketHubTestBase {
 
         uint256 expectedIncentiveAmountInCaseOfLinearFill = FixedPointMathLib.mulWadDown(totalIncentivesOffered, fillPercentage);
         uint256 expectedIncentiveAmountInCaseOfInitialIncentiveRate = FixedPointMathLib.mulWadDown(totalInitialIncentivesOffered, fillPercentage);
-
-        console.log("====================Filling order=====================");
 
         // Expect events for transfers
         vm.expectEmit(true, true, false, true, address(mockIncentiveToken));
@@ -247,11 +246,8 @@ contract TestFuzz_Fill_IPGdaOffer_RecipeMarketHub is RecipeMarketHubTestBase {
         vm.recordLogs();
         // Fill the offer
         vm.startPrank(BOB_ADDRESS);
-        vm.warp(timestamp + timeSinceAuctionStart);
         recipeMarketHub.fillIPGdaOffers(offerHash, fillAmount, address(0), FRONTEND_FEE_RECIPIENT);
         vm.stopPrank();
-
-        console.log("====================Filled order=====================");
 
         (,,,, uint256 resultingQuantity, uint256 resultingRemainingQuantity,) = recipeMarketHub.offerHashToIPGdaOffer(offerHash);
         assertEq(resultingRemainingQuantity, resultingQuantity - fillAmount);
