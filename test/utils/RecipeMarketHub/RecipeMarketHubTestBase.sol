@@ -111,7 +111,7 @@ contract RecipeMarketHubTestBase is RoycoTestBase, RecipeUtils {
 
         RecipeMarketHubBase.GDAParams memory gdaParams;
         gdaParams.initialDiscountMultiplier = FixedPointMathLib.divWadDown(10, 100);
-        gdaParams.decayRate = unwrap(div(wrap(SafeCastLib.toInt256(90)), wrap(SafeCastLib.toInt256(100))));
+        gdaParams.decayRate = unwrap(div(wrap(SafeCastLib.toInt256(1)), wrap(SafeCastLib.toInt256(2))));
         gdaParams.emissionRate = SafeCastLib.toInt256(1);
         gdaParams.lastAuctionStartTime = 0;
 
@@ -172,7 +172,7 @@ contract RecipeMarketHubTestBase is RoycoTestBase, RecipeUtils {
 
         RecipeMarketHubBase.GDAParams memory gdaParams;
         gdaParams.initialDiscountMultiplier = 10 * 1e18 / 100;
-        gdaParams.decayRate = unwrap(div(wrap(SafeCastLib.toInt256(90)), wrap(SafeCastLib.toInt256(100))));
+        gdaParams.decayRate = unwrap(div(wrap(SafeCastLib.toInt256(1)), wrap(SafeCastLib.toInt256(2))));
         gdaParams.emissionRate = SafeCastLib.toInt256(1);
         gdaParams.lastAuctionStartTime = 0;
 
@@ -352,7 +352,7 @@ contract RecipeMarketHubTestBase is RoycoTestBase, RecipeUtils {
 
         RecipeMarketHubBase.GDAParams memory gdaParams;
         gdaParams.initialDiscountMultiplier = 10 * 1e18 / 100;
-        gdaParams.decayRate = unwrap(div(wrap(SafeCastLib.toInt256(90)), wrap(SafeCastLib.toInt256(100))));
+        gdaParams.decayRate = unwrap(div(wrap(SafeCastLib.toInt256(1)), wrap(SafeCastLib.toInt256(2))));
         gdaParams.emissionRate = SafeCastLib.toInt256(1);
         gdaParams.lastAuctionStartTime = 0;
 
