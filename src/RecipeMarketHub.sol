@@ -11,7 +11,6 @@ import { SafeCastLib } from "lib/solady/src/utils/SafeCastLib.sol";
 import { Points } from "src/Points.sol";
 import { PointsFactory } from "src/PointsFactory.sol";
 import { Owned } from "lib/solmate/src/auth/Owned.sol";
-
 import { GradualDutchAuction } from "src/gda/GDA.sol";
 
 /// @title RecipeMarketHub
