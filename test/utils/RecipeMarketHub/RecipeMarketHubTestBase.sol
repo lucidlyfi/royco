@@ -110,9 +110,45 @@ contract RecipeMarketHubTestBase is RoycoTestBase, RecipeUtils {
         incentiveAmountsOffered[0] = 1000e18;
 
         RecipeMarketHubBase.GDAParams memory gdaParams;
-        gdaParams.initialDiscountMultiplier = FixedPointMathLib.divWadDown(10, 100);
+        gdaParams.initialDiscountMultiplier = FixedPointMathLib.divWadDown(50, 100);
         gdaParams.decayRate = unwrap(div(wrap(SafeCastLib.toInt256(1)), wrap(SafeCastLib.toInt256(2))));
         gdaParams.emissionRate = SafeCastLib.toInt256(1);
+        gdaParams.lastAuctionStartTime = 0;
+
+        mockIncentiveToken.mint(_ipAddress, 1000e18);
+        mockIncentiveToken.approve(address(recipeMarketHub), 1000e18);
+
+        offerHash = recipeMarketHub.createIPGdaOffer(
+            _targetMarketHash, // Referencing the created market
+            _quantity, // Total input token amount
+            block.timestamp + 30 days, // Expiry time
+            tokensOffered, // Incentive tokens offered
+            incentiveAmountsOffered, // Incentive amounts offered
+            gdaParams
+        );
+    }
+
+    function createIPGdaOffer_WithTokensWithVarParams(
+        bytes32 _targetMarketHash,
+        uint256 _quantity,
+        address _ipAddress,
+        uint256 _initialDiscountMultiplier,
+        int256 _decayRate,
+        int256 _emissionRate
+    )
+        public
+        prankModifier(_ipAddress)
+        returns (bytes32 offerHash)
+    {
+        address[] memory tokensOffered = new address[](1);
+        tokensOffered[0] = address(mockIncentiveToken);
+        uint256[] memory incentiveAmountsOffered = new uint256[](1);
+        incentiveAmountsOffered[0] = 1000e18;
+
+        RecipeMarketHubBase.GDAParams memory gdaParams;
+        gdaParams.initialDiscountMultiplier = _initialDiscountMultiplier;
+        gdaParams.decayRate = _decayRate;
+        gdaParams.emissionRate = _emissionRate;
         gdaParams.lastAuctionStartTime = 0;
 
         mockIncentiveToken.mint(_ipAddress, 1000e18);

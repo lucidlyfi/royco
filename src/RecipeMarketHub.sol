@@ -597,12 +597,6 @@ contract RecipeMarketHub is RecipeMarketHubBase {
             revert CannotPlaceZeroQuantityOffer();
         }
 
-        uint256 incentiveMultiplier = GradualDutchAuction._calculateIncentiveMultiplier(
-            offer.gdaParams.decayRate, offer.gdaParams.emissionRate, offer.gdaParams.lastAuctionStartTime, fillAmount
-        );
-
-        offer.gdaParams.lastAuctionStartTime = SafeCastLib.toInt256(block.timestamp);
-
         // Update the offer's remaining quantity before interacting with external contracts
         offer.remainingQuantity -= fillAmount;
 
@@ -633,6 +627,17 @@ contract RecipeMarketHub is RecipeMarketHubBase {
         // Calculate the percentage of the offer the AP is filling
         uint256 fillPercentage = fillAmount.divWadDown(offer.quantity);
 
+        uint256 incentiveMultiplier = GradualDutchAuction._calculateIncentiveMultiplier(
+            offer.gdaParams.decayRate, offer.gdaParams.emissionRate, offer.gdaParams.lastAuctionStartTime, fillPercentage
+        );
+
+        offer.gdaParams.lastAuctionStartTime = SafeCastLib.toInt256(block.timestamp);
+        uint256 maxAllowed = 135_305_999_368_893_231_588;
+        uint256 minMultiplier = 1e18;
+        uint256 maxMultiplier = FixedPointMathLib.divWadDown(
+            offer.incentiveAmountsOffered[offer.incentivesOffered[0]], offer.initialIncentiveAmountsOffered[offer.incentivesOffered[0]]
+        );
+
         // Perform incentive accounting on a per incentive basis
         for (uint256 i = 0; i < numIncentives; ++i) {
             // Incentive address
@@ -643,10 +648,10 @@ contract RecipeMarketHub is RecipeMarketHubBase {
             frontendFeesPaid[i] = offer.incentiveToFrontendFeeAmount[incentive].mulWadDown(fillPercentage);
 
             // Calculate incentives to give based on percentage of fill
-            uint256 minMultiplier = 1e18;
-            uint256 maxMultiplier = FixedPointMathLib.divWadDown(offer.incentiveAmountsOffered[incentive], offer.initialIncentiveAmountsOffered[incentive]);
+            // uint256 minMultiplier = 1e18;
+            // uint256 maxMultiplier = FixedPointMathLib.divWadDown(offer.incentiveAmountsOffered[incentive], offer.initialIncentiveAmountsOffered[incentive]);
             uint256 scaledMultiplier =
-                minMultiplier + FixedPointMathLib.divWadDown(FixedPointMathLib.mulWadDown(incentiveMultiplier, maxMultiplier - minMultiplier), maxMultiplier);
+                minMultiplier + FixedPointMathLib.divWadDown(FixedPointMathLib.mulWadDown(incentiveMultiplier, maxMultiplier - minMultiplier), maxAllowed);
             incentiveAmountsPaid[i] = offer.initialIncentiveAmountsOffered[incentive].mulWadDown(scaledMultiplier).mulWadDown(fillPercentage);
 
             if (market.rewardStyle == RewardStyle.Upfront) {

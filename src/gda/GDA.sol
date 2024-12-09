@@ -13,8 +13,6 @@ import { PointsFactory } from "src/PointsFactory.sol";
 import { Owned } from "lib/solmate/src/auth/Owned.sol";
 
 library GradualDutchAuction {
-    error GDA__MulDivFailed();
-
     function _calculateIncentiveMultiplier(
         int256 decayRate,
         int256 emissionRate,
@@ -30,31 +28,21 @@ library GradualDutchAuction {
         int256 quantity = SafeCastLib.toInt256(numTokens);
         int256 timeSinceLastAuctionStart = SafeCastLib.toInt256(block.timestamp) - lastAuctionStartTime;
         int256 num1 = FixedPointMathLib.rawSDivWad(1e18, decayRate);
-        int256 exponent = FixedPointMathLib.expWad(_mulDiv(_mulDiv(decayRate, quantity, emissionRate), maxAllowed, maxIntValue)) - 1;
 
-        // int256 den = FixedPointMathLib.expWad(FixedPointMathLib.sMulWad(_mulDiv(decayRate, maxAllowed, maxIntValue), timeSinceLastAuctionStart));
-        // int256 den =
-        //     FixedPointMathLib.expWad(FixedPointMathLib.clamp((FixedPointMathLib.sMulWad(decayRate, timeSinceLastAuctionStart * 1e18)), 1e18, maxAllowed));
-        // int256 den = FixedPointMathLib.expWad(_mulDiv(FixedPointMathLib.sMulWad(decayRate, timeSinceLastAuctionStart * 1e18), maxAllowed, maxIntValue));
-        int256 den = FixedPointMathLib.expWad(FixedPointMathLib.sMulWad(decayRate, timeSinceLastAuctionStart));
+        // exponent = e^((((decayRate * quantity) / emissionRate ) * maxAllowed)/ maxIntValue) - 1
+        int256 exponent = FixedPointMathLib.expWad(
+            FixedPointMathLib.sDivWad(
+                FixedPointMathLib.sMulWad(FixedPointMathLib.sDivWad(FixedPointMathLib.sMulWad(decayRate, quantity), emissionRate), maxAllowed), maxIntValue
+            )
+        ) - 1;
 
-        // int256 totalIncentiveMultiplier = (num1 * exponent) / den;
-        // int256 totalIncentiveMultiplier = _mulDiv(num1, exponent, den);
+        //  den = e^(decayRate / timeSinceLastAuctionStart)
+        int256 den = FixedPointMathLib.expWad(FixedPointMathLib.rawSDiv(decayRate, timeSinceLastAuctionStart));
         int256 totalIncentiveMultiplier = FixedPointMathLib.sDivWad(FixedPointMathLib.sMulWad(num1, exponent), den);
-        return SafeCastLib.toUint256(totalIncentiveMultiplier);
+        return SafeCastLib.toUint256(FixedPointMathLib.lnWad(totalIncentiveMultiplier + 1e18));
     }
 
-    /// @dev equivalent to `(x * y) / d` rounded down.
-    function _mulDiv(int256 x, int256 y, int256 d) internal pure returns (int256 z) {
-        /// @solidity memory-safe-assembly
-        assembly {
-            z := mul(x, y)
-            // equivalent to `require((x == 0 || z / x == y) && !(x == -1 && y == type(uint256).min))`
-            if iszero(gt(or(iszero(x), eq(sdiv(z, x), y)), lt(not(x), eq(y, shl(255, 1))))) {
-                mstore(0x00, 0xf96c5208) // `GDA__MulDivFailed()`
-                revert(0x1c, 0x04)
-            }
-            z := sdiv(z, d)
-        }
+    function _expWad(int256 x) internal view returns (int256) {
+        return FixedPointMathLib.expWad(x);
     }
 }
