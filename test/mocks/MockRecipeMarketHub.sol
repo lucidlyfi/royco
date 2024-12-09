@@ -8,9 +8,11 @@ import { ERC4626 } from "lib/solmate/src/tokens/ERC4626.sol";
 import { ClonesWithImmutableArgs } from "lib/clones-with-immutable-args/src/ClonesWithImmutableArgs.sol";
 import { Owned } from "lib/solmate/src/auth/Owned.sol";
 import { SafeTransferLib } from "lib/solmate/src/utils/SafeTransferLib.sol";
+import { SafeCastLib } from "lib/solady/src/utils/SafeCastLib.sol";
 import { FixedPointMathLib } from "lib/solmate/src/utils/FixedPointMathLib.sol";
 import { Points } from "src/Points.sol";
 import { PointsFactory } from "src/PointsFactory.sol";
+import { GradualDutchAuction } from "src/gda/GDA.sol";
 
 contract MockRecipeMarketHub is RecipeMarketHub {
     constructor(
@@ -27,6 +29,10 @@ contract MockRecipeMarketHub is RecipeMarketHub {
         _fillIPOffer(offerHash, fillAmount, fundingVault, frontendFeeRecipient);
     }
 
+    function fillIPGdaOffers(bytes32 offerHash, uint256 fillAmount, address fundingVault, address frontendFeeRecipient) external {
+        _fillIPGdaOffer(offerHash, fillAmount, fundingVault, frontendFeeRecipient);
+    }
+
     function fillAPOffers(APOffer calldata offer, uint256 fillAmount, address frontendFeeRecipient) external {
         _fillAPOffer(offer, fillAmount, frontendFeeRecipient);
     }
@@ -36,12 +42,54 @@ contract MockRecipeMarketHub is RecipeMarketHub {
         return offerHashToIPOffer[offerHash].incentiveAmountsOffered[tokenAddress];
     }
 
+    function getMaxIncentiveAmountsOfferedForIPGdaOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
+        return offerHashToIPGdaOffer[offerHash].incentiveAmountsOffered[tokenAddress];
+    }
+
+    function getMinIncentiveAmountsOfferedForIPGdaOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
+        return offerHashToIPGdaOffer[offerHash].initialIncentiveAmountsOffered[tokenAddress];
+    }
+
+    function getLastAuctionStartTime(bytes32 offerHash) external view returns (uint256) {
+        int256 lastAuctionStartTime = offerHashToIPGdaOffer[offerHash].gdaParams.lastAuctionStartTime;
+        return SafeCastLib.toUint256(lastAuctionStartTime);
+    }
+
+    function getIncentiveAmountsOfferedForIPGdaOffer(bytes32 offerHash, address tokenAddress, uint256 fillAmount) external view returns (uint256) {
+        uint256 fillPercentage = FixedPointMathLib.divWadDown(fillAmount, offerHashToIPGdaOffer[offerHash].quantity);
+        uint256 incentiveMultiplier = GradualDutchAuction._calculateIncentiveMultiplier(
+            offerHashToIPGdaOffer[offerHash].gdaParams.decayRate,
+            offerHashToIPGdaOffer[offerHash].gdaParams.emissionRate,
+            offerHashToIPGdaOffer[offerHash].gdaParams.lastAuctionStartTime,
+            fillPercentage
+        );
+        uint256 initialIncentivesOffered = offerHashToIPGdaOffer[offerHash].initialIncentiveAmountsOffered[tokenAddress];
+        uint256 minMultiplier = 1e18;
+        uint256 maxMultiplier = FixedPointMathLib.divWadDown(
+            offerHashToIPGdaOffer[offerHash].incentiveAmountsOffered[tokenAddress],
+            offerHashToIPGdaOffer[offerHash].initialIncentiveAmountsOffered[tokenAddress]
+        );
+
+        uint256 maxAllowed = 135_305_999_368_893_231_588;
+        uint256 scaledMultiplier =
+            minMultiplier + FixedPointMathLib.divWadDown(FixedPointMathLib.mulWadDown(incentiveMultiplier, maxMultiplier - minMultiplier), maxAllowed);
+        return FixedPointMathLib.mulWadDown(initialIncentivesOffered, scaledMultiplier);
+    }
+
     function getIncentiveToProtocolFeeAmountForIPOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
         return offerHashToIPOffer[offerHash].incentiveToProtocolFeeAmount[tokenAddress];
     }
 
+    function getIncentiveToProtocolFeeAmountForIPGdaOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
+        return offerHashToIPGdaOffer[offerHash].incentiveToProtocolFeeAmount[tokenAddress];
+    }
+
     function getIncentiveToFrontendFeeAmountForIPOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
         return offerHashToIPOffer[offerHash].incentiveToFrontendFeeAmount[tokenAddress];
+    }
+
+    function getIncentiveToFrontendFeeAmountForIPGdaOffer(bytes32 offerHash, address tokenAddress) external view returns (uint256) {
+        return offerHashToIPGdaOffer[offerHash].incentiveToFrontendFeeAmount[tokenAddress];
     }
 
     // Single getter function that returns the entire LockedRewardParams struct as a tuple
@@ -71,4 +119,6 @@ contract MockRecipeMarketHub is RecipeMarketHub {
     {
         return keccak256(abi.encodePacked(offerID, targetMarketHash, ip, expiry, quantity, incentivesOffered, incentiveAmountsOffered));
     }
+
+    uint256 internal constant WAD = 1e18;
 }
