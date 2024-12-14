@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
-import { RecipeMarketHubBase, RewardStyle, WeirollWallet } from "./base/RecipeMarketHubBase.sol";
-import { ERC20 } from "../lib/solmate/src/tokens/ERC20.sol";
-import { ERC4626 } from "../lib/solmate/src/tokens/ERC4626.sol";
-import { ClonesWithImmutableArgs } from "../lib/clones-with-immutable-args/src/ClonesWithImmutableArgs.sol";
-import { SafeTransferLib } from "../lib/solmate/src/utils/SafeTransferLib.sol";
-import { FixedPointMathLib } from "../lib/solmate/src/utils/FixedPointMathLib.sol";
-import { Points } from "./Points.sol";
-import { PointsFactory } from "./PointsFactory.sol";
-import { Owned } from "../lib/solmate/src/auth/Owned.sol";
+import { RecipeMarketHubBase, RewardStyle, WeirollWallet } from "src/base/RecipeMarketHubBase.sol";
+import { ERC20 } from "lib/solmate/src/tokens/ERC20.sol";
+import { ERC4626 } from "lib/solmate/src/tokens/ERC4626.sol";
+import { ClonesWithImmutableArgs } from "lib/clones-with-immutable-args/src/ClonesWithImmutableArgs.sol";
+import { SafeTransferLib } from "lib/solmate/src/utils/SafeTransferLib.sol";
+import { FixedPointMathLib } from "lib/solmate/src/utils/FixedPointMathLib.sol";
+import { SafeCastLib } from "lib/solady/src/utils/SafeCastLib.sol";
+import { Points } from "src/Points.sol";
+import { PointsFactory } from "src/PointsFactory.sol";
+import { Owned } from "lib/solmate/src/auth/Owned.sol";
+import { GradualDutchAuction } from "src/gda/GDA.sol";
 
 /// @title RecipeMarketHub
 /// @author Jack Corddry, CopyPaste, Shivaansh Kapoor
@@ -285,6 +287,152 @@ contract RecipeMarketHub is RecipeMarketHubBase {
         numIPOffers++;
     }
 
+    /// @notice Create a new IP offer, transferring the IP's incentives to the RecipeMarketHub and putting all the offer params in contract storage
+    /// @dev IP must approve all incentives to be spent by the RecipeMarketHub before calling this function
+    /// @param targetMarketHash The hash of the weiroll market to create the IP offer for
+    /// @param quantity The total amount of input tokens to be deposited
+    /// @param expiry The timestamp after which the offer is considered expired
+    /// @param incentivesOffered The addresses of the incentives offered by the IP
+    /// @param incentiveAmountsPaid The amount of each incentives paid by the IP (including fees)
+    /// @param gdaParams gradual dutch auction params
+    /// @return offerHash The hash of the IP offer created
+    function createIPGdaOffer(
+        bytes32 targetMarketHash,
+        uint256 quantity,
+        uint256 expiry,
+        address[] calldata incentivesOffered,
+        uint256[] calldata incentiveAmountsPaid,
+        GDAParams calldata gdaParams
+    )
+        external
+        payable
+        nonReentrant
+        returns (bytes32 offerHash)
+    {
+        // Retrieve the target market
+        WeirollMarket storage targetMarket = marketHashToWeirollMarket[targetMarketHash];
+
+        // Check that the market exists
+        if (address(targetMarket.inputToken) == address(0)) {
+            revert MarketDoesNotExist();
+        }
+        // Check that the offer isn't expired
+        if (expiry != 0 && expiry < block.timestamp) {
+            revert CannotPlaceExpiredOffer();
+        }
+
+        // Check that the incentives and amounts arrays are the same length
+        if (incentivesOffered.length != incentiveAmountsPaid.length) {
+            revert ArrayLengthMismatch();
+        }
+
+        // Check offer isn't empty
+        if (quantity < MINIMUM_QUANTITY) {
+            revert CannotPlaceZeroQuantityOffer();
+        }
+
+        if (gdaParams.initialDiscountMultiplier >= 1e18) {
+            revert InvalidInitialDiscountMultiplier();
+        }
+
+        // To keep track of incentives allocated to the AP and fees (per incentive)
+        uint256[] memory incentiveAmountsOffered = new uint256[](incentivesOffered.length);
+        uint256[] memory protocolFeesToBePaid = new uint256[](incentivesOffered.length);
+        uint256[] memory frontendFeesToBePaid = new uint256[](incentivesOffered.length);
+
+        // Transfer the IP's incentives to the RecipeMarketHub and set aside fees
+        address lastIncentive;
+        for (uint256 i = 0; i < incentivesOffered.length; ++i) {
+            // Get the incentive offered
+            address incentive = incentivesOffered[i];
+
+            // Check that the sorted incentive array has no duplicates
+            if (uint256(bytes32(bytes20(incentive))) <= uint256(bytes32(bytes20(lastIncentive)))) {
+                revert OfferCannotContainDuplicates();
+            }
+            lastIncentive = incentive;
+
+            // Total amount IP is paying in this incentive including fees
+            uint256 amount = incentiveAmountsPaid[i];
+
+            // Get the frontend fee for the target weiroll market
+            uint256 frontendFee = targetMarket.frontendFee;
+
+            // Calculate incentive and fee breakdown
+            uint256 incentiveAmount = amount.divWadDown(1e18 + protocolFee + frontendFee);
+            uint256 protocolFeeAmount = incentiveAmount.mulWadDown(protocolFee);
+            uint256 frontendFeeAmount = incentiveAmount.mulWadDown(frontendFee);
+
+            // Use a scoping block to avoid stack to deep errors
+            {
+                // Track incentive amounts and fees (per incentive)
+                incentiveAmountsOffered[i] = incentiveAmount;
+                protocolFeesToBePaid[i] = protocolFeeAmount;
+                frontendFeesToBePaid[i] = frontendFeeAmount;
+            }
+
+            // Check if incentive is a points program
+            if (PointsFactory(POINTS_FACTORY).isPointsProgram(incentive)) {
+                // If points incentive, make sure:
+                // 1. The points factory used to create the program is the same as this RecipeMarketHubs PF
+                // 2. IP placing the offer can award points
+                // 3. Points factory has this RecipeMarketHub marked as a valid RO - can be assumed true
+                if (POINTS_FACTORY != address(Points(incentive).pointsFactory()) || !Points(incentive).allowedIPs(msg.sender)) {
+                    revert InvalidPointsProgram();
+                }
+            } else {
+                // SafeTransferFrom does not check if a incentive address has any code, so we need to check it manually to prevent incentive deployment
+                // frontrunning
+                if (incentive.code.length == 0) revert TokenDoesNotExist();
+                // Transfer frontend fee + protocol fee + incentiveAmount of the incentive to RecipeMarketHub
+                ERC20(incentive).safeTransferFrom(msg.sender, address(this), incentiveAmount + protocolFeeAmount + frontendFeeAmount);
+            }
+        }
+
+        // Set the offer hash
+        offerHash = getIPGdaOfferHash(numIPOffers, targetMarketHash, msg.sender, expiry, quantity, incentivesOffered, incentiveAmountsOffered, gdaParams);
+        // Create and store the offer
+        IPGdaOffer storage offer = offerHashToIPGdaOffer[offerHash];
+        offer.offerID = numIPOffers;
+        offer.targetMarketHash = targetMarketHash;
+        offer.ip = msg.sender;
+        offer.quantity = quantity;
+        offer.remainingQuantity = quantity;
+        offer.expiry = expiry;
+        offer.incentivesOffered = incentivesOffered;
+        offer.gdaParams.decayRate = gdaParams.decayRate;
+        offer.gdaParams.emissionRate = gdaParams.emissionRate;
+        offer.gdaParams.lastAuctionStartTime = SafeCastLib.toInt256(block.timestamp);
+        offer.gdaParams.initialDiscountMultiplier = gdaParams.initialDiscountMultiplier;
+
+        // Set incentives and fees in the offer mapping
+        for (uint256 i = 0; i < incentivesOffered.length; ++i) {
+            address incentive = incentivesOffered[i];
+            offer.incentiveAmountsOffered[incentive] = incentiveAmountsOffered[i];
+            offer.initialIncentiveAmountsOffered[incentive] =
+                FixedPointMathLib.mulWadDown(incentiveAmountsOffered[i], offer.gdaParams.initialDiscountMultiplier);
+            offer.incentiveToProtocolFeeAmount[incentive] = protocolFeesToBePaid[i];
+            offer.incentiveToFrontendFeeAmount[incentive] = frontendFeesToBePaid[i];
+        }
+
+        // Emit IP offer creation event
+        emit IPGdaOfferCreated(
+            numIPOffers,
+            offerHash,
+            targetMarketHash,
+            quantity,
+            incentivesOffered,
+            incentiveAmountsOffered,
+            protocolFeesToBePaid,
+            frontendFeesToBePaid,
+            expiry,
+            offer.gdaParams
+        );
+
+        // Increment the number of IP offers created
+        numIPGdaOffers++;
+    }
+
     /// @param incentiveToken The incentive token to claim fees for
     /// @param to The address to send fees claimed to
     function claimFees(address incentiveToken, address to) external payable {
@@ -419,6 +567,121 @@ contract RecipeMarketHub is RecipeMarketHubBase {
         wallet.executeWeiroll(market.depositRecipe.weirollCommands, market.depositRecipe.weirollState);
 
         emit IPOfferFilled(offerHash, msg.sender, fillAmount, address(wallet), incentiveAmountsPaid, protocolFeesPaid, frontendFeesPaid);
+    }
+
+    /// @notice Fill an IP Gda offer, transferring the IP's incentives to the AP, withdrawing the AP from their funding vault into a fresh weiroll wallet, and
+    /// executing the weiroll recipe
+    function _fillIPGdaOffer(bytes32 offerHash, uint256 fillAmount, address fundingVault, address frontendFeeRecipient) internal {
+        // Retreive the IPOffer and WeirollMarket structs
+        IPGdaOffer storage offer = offerHashToIPGdaOffer[offerHash];
+        // IPOffer storage offer = offerHashToIPOffer[offerHash];
+        WeirollMarket storage market = marketHashToWeirollMarket[offer.targetMarketHash];
+
+        // Check that the offer isn't expired
+        if (offer.expiry != 0 && block.timestamp > offer.expiry) {
+            revert OfferExpired();
+        }
+        // Check that the offer has enough remaining quantity
+        if (offer.remainingQuantity < fillAmount && fillAmount != type(uint256).max) {
+            revert NotEnoughRemainingQuantity();
+        }
+        if (fillAmount == type(uint256).max) {
+            fillAmount = offer.remainingQuantity;
+        }
+        // Check that the offer's base asset matches the market's base asset
+        if (fundingVault != address(0) && market.inputToken != ERC4626(fundingVault).asset()) {
+            revert MismatchedBaseAsset();
+        }
+        // Check that the offer isn't empty
+        if (fillAmount == 0) {
+            revert CannotPlaceZeroQuantityOffer();
+        }
+
+        // Update the offer's remaining quantity before interacting with external contracts
+        offer.remainingQuantity -= fillAmount;
+
+        WeirollWallet wallet;
+        {
+            // Use a scoping block to avoid stack too deep
+            bool forfeitable = market.rewardStyle == RewardStyle.Forfeitable;
+            uint256 unlockTime = block.timestamp + market.lockupTime;
+
+            // Create weiroll wallet to lock assets for recipe execution(s)
+            wallet = WeirollWallet(
+                payable(
+                    WEIROLL_WALLET_IMPLEMENTATION.clone(
+                        abi.encodePacked(msg.sender, address(this), fillAmount, unlockTime, forfeitable, offer.targetMarketHash)
+                    )
+                )
+            );
+        }
+
+        // Number of incentives offered by the IP
+        uint256 numIncentives = offer.incentivesOffered.length;
+
+        // Arrays to store incentives and fee amounts to be paid
+        uint256[] memory incentiveAmountsPaid = new uint256[](numIncentives);
+        uint256[] memory protocolFeesPaid = new uint256[](numIncentives);
+        uint256[] memory frontendFeesPaid = new uint256[](numIncentives);
+
+        // Calculate the percentage of the offer the AP is filling
+        uint256 fillPercentage = fillAmount.divWadDown(offer.quantity);
+
+        uint256 incentiveMultiplier = GradualDutchAuction._calculateIncentiveMultiplier(
+            offer.gdaParams.decayRate, offer.gdaParams.emissionRate, offer.gdaParams.lastAuctionStartTime, fillPercentage
+        );
+
+        offer.gdaParams.lastAuctionStartTime = SafeCastLib.toInt256(block.timestamp);
+        uint256 maxAllowed = 135_305_999_368_893_231_588;
+        uint256 minMultiplier = 1e18;
+        uint256 maxMultiplier = FixedPointMathLib.divWadDown(
+            offer.incentiveAmountsOffered[offer.incentivesOffered[0]], offer.initialIncentiveAmountsOffered[offer.incentivesOffered[0]]
+        );
+
+        // Perform incentive accounting on a per incentive basis
+        for (uint256 i = 0; i < numIncentives; ++i) {
+            // Incentive address
+            address incentive = offer.incentivesOffered[i];
+
+            // Calculate fees to take based on percentage of fill
+            protocolFeesPaid[i] = offer.incentiveToProtocolFeeAmount[incentive].mulWadDown(fillPercentage);
+            frontendFeesPaid[i] = offer.incentiveToFrontendFeeAmount[incentive].mulWadDown(fillPercentage);
+
+            // Calculate incentives to give based on percentage of fill
+            // uint256 minMultiplier = 1e18;
+            // uint256 maxMultiplier = FixedPointMathLib.divWadDown(offer.incentiveAmountsOffered[incentive], offer.initialIncentiveAmountsOffered[incentive]);
+            uint256 scaledMultiplier =
+                minMultiplier + FixedPointMathLib.divWadDown(FixedPointMathLib.mulWadDown(incentiveMultiplier, maxMultiplier - minMultiplier), maxAllowed);
+            incentiveAmountsPaid[i] = offer.initialIncentiveAmountsOffered[incentive].mulWadDown(scaledMultiplier).mulWadDown(fillPercentage);
+
+            if (market.rewardStyle == RewardStyle.Upfront) {
+                // Push incentives to AP and account fees on fill in an upfront market
+                _pushIncentivesAndAccountFees(
+                    incentive, msg.sender, incentiveAmountsPaid[i], protocolFeesPaid[i], frontendFeesPaid[i], offer.ip, frontendFeeRecipient
+                );
+            }
+        }
+
+        if (market.rewardStyle != RewardStyle.Upfront) {
+            // If RewardStyle is either Forfeitable or Arrear
+            // Create locked rewards params to account for payouts upon wallet unlocking
+            LockedRewardParams storage params = weirollWalletToLockedIncentivesParams[address(wallet)];
+            params.incentives = offer.incentivesOffered;
+            params.amounts = incentiveAmountsPaid;
+            params.ip = offer.ip;
+            params.frontendFeeRecipient = frontendFeeRecipient;
+            params.wasIPOffer = true;
+            params.offerHash = offerHash;
+        }
+
+        // Fund the weiroll wallet with the specified amount of the market's input token
+        // Will use the funding vault if specified or will fund directly from the AP
+        _fundWeirollWallet(fundingVault, msg.sender, market.inputToken, fillAmount, address(wallet));
+
+        // Execute deposit recipe
+        wallet.executeWeiroll(market.depositRecipe.weirollCommands, market.depositRecipe.weirollState);
+
+        emit IPGdaOfferFilled(offerHash, msg.sender, fillAmount, address(wallet), incentiveAmountsPaid, protocolFeesPaid, frontendFeesPaid);
     }
 
     /// @dev Fill multiple AP offers

@@ -32,6 +32,8 @@ abstract contract RecipeMarketHubBase is Owned, ReentrancyGuardTransient {
     uint256 public numAPOffers;
     /// @notice The number of IP offers that have been created
     uint256 public numIPOffers;
+    /// @notice The number of IPGda offers that have been created
+    uint256 public numIPGdaOffers;
     /// @notice The number of unique weiroll markets added
     uint256 public numMarkets;
 
@@ -50,6 +52,7 @@ abstract contract RecipeMarketHubBase is Owned, ReentrancyGuardTransient {
 
     /// @notice Holds all IPOffer structs
     mapping(bytes32 => IPOffer) public offerHashToIPOffer;
+    mapping(bytes32 => IPGdaOffer) public offerHashToIPGdaOffer;
     /// @notice Tracks the unfilled quantity of each AP offer
     mapping(bytes32 => uint256) public offerHashToRemainingQuantity;
 
@@ -102,6 +105,46 @@ abstract contract RecipeMarketHubBase is Owned, ReentrancyGuardTransient {
         mapping(address => uint256) incentiveAmountsOffered; // amounts to be allocated to APs (per incentive)
         mapping(address => uint256) incentiveToProtocolFeeAmount; // amounts to be allocated to protocolFeeClaimant (per incentive)
         mapping(address => uint256) incentiveToFrontendFeeAmount; // amounts to be allocated to frontend provider (per incentive)
+    }
+
+    /// @custom:field offerID Set to numAPOffers (zero-indexed) - ordered separately for AP and IP offers
+    /// @custom:field targetMarketHash The hash of the weiroll market which the IP offer is for
+    /// @custom:field ip The address of the incentive provider
+    /// @custom:field expiry The timestamp after which the offer is considered expired
+    /// @custom:field quantity The total quantity of the market's input token requested by the IP
+    /// @custom:field incentivesOffered The incentives offered by the IP
+    /// @custom:field initialIncentiveAmountsOffered Mapping of incentive to the initial  amount of the incentive allocated to APs
+    /// @custom:field incentiveAmountsOffered Mapping of incentive to the amount of the incentive allocated to APs
+    /// @custom:field incentiveToProtocolFeeAmount Mapping of incentive to the amount of the incentive allocated to the protocol fee
+    /// @custom:field incentiveToFrontendFeeAmount Mapping of incentive to the amount of the incentive allocated to frontend fee recipients
+    /// @custom:field initialPrice t_0 in GDA
+    /// @custom:field decayConstant k in GDA
+    /// @custom:field emissionRate r in GDA
+    /// @custom:field lastAuctionStartTime t_0 in GDA
+    struct IPGdaOffer {
+        uint256 offerID;
+        bytes32 targetMarketHash;
+        address ip;
+        uint256 expiry;
+        uint256 quantity;
+        uint256 remainingQuantity;
+        address[] incentivesOffered;
+        mapping(address => uint256) initialIncentiveAmountsOffered; // amounts to be allocated to APs when auction starts (per incentive)
+        mapping(address => uint256) incentiveAmountsOffered; // amounts to be allocated to APs (per incentive)
+        mapping(address => uint256) incentiveToProtocolFeeAmount; // amounts to be allocated to protocolFeeClaimant (per incentive)
+        mapping(address => uint256) incentiveToFrontendFeeAmount; // amounts to be allocated to frontend provider (per incentive)
+        GDAParams gdaParams;
+    }
+
+    /// @custom: field initialDiscountMultiplier Discount multiplier for initial incentive amounts offered to AP
+    /// @custom: field decayRate Parameter that controls incentive rate decay, stored as a 59x18 fixed precision number
+    /// @custom: field emissionRate Controls how much incentives are now up in tokens per second, stored as a 59x18 fixed precision number
+    /// @custom: field lastAuctionStartTime tracks time since last auction
+    struct GDAParams {
+        uint256 initialDiscountMultiplier; // 1e18 is 0%, 90 * 1e18 / 100 is 10% discount, must be less than 1e18
+        int256 decayRate;
+        int256 emissionRate;
+        int256 lastAuctionStartTime;
     }
 
     /// @custom:field offerID Set to numAPOffers (zero-indexed) - ordered separately for AP and IP offers
@@ -188,6 +231,19 @@ abstract contract RecipeMarketHubBase is Owned, ReentrancyGuardTransient {
         uint256 expiry
     );
 
+    event IPGdaOfferCreated(
+        uint256 indexed offerID,
+        bytes32 indexed offerHash,
+        bytes32 indexed marketHash,
+        uint256 quantity,
+        address[] incentivesOffered,
+        uint256[] incentiveAmounts,
+        uint256[] protocolFeeAmounts,
+        uint256[] frontendFeeAmounts,
+        uint256 expiry,
+        GDAParams gdaParams
+    );
+
     /// @param offerHash Hash of the offer (used to identify IP offers)
     /// @param ap The address of the AP that filled this offer.
     /// @param fillAmount The amount of the offer that was filled in the market input token
@@ -196,6 +252,23 @@ abstract contract RecipeMarketHubBase is Owned, ReentrancyGuardTransient {
     /// @param protocolFeeAmounts The protocol fee per incentive on fill (claimable as per the market's reward type)
     /// @param frontendFeeAmounts The rewards frontend fee per incentive on fill (claimable as per the market's reward type)
     event IPOfferFilled(
+        bytes32 indexed offerHash,
+        address indexed ap,
+        uint256 fillAmount,
+        address weirollWallet,
+        uint256[] incentiveAmounts,
+        uint256[] protocolFeeAmounts,
+        uint256[] frontendFeeAmounts
+    );
+
+    /// @param offerHash Hash of the offer (used to identify IP offers)
+    /// @param ap The address of the AP that filled this offer.
+    /// @param fillAmount The amount of the offer that was filled in the market input token
+    /// @param weirollWallet The address of the weiroll wallet containing the AP's funds, created on fill, used to execute the recipes
+    /// @param incentiveAmounts The amount of incentives allocated to the AP on fill (claimable as per the market's reward type)
+    /// @param protocolFeeAmounts The protocol fee per incentive on fill (claimable as per the market's reward type)
+    /// @param frontendFeeAmounts The rewards frontend fee per incentive on fill (claimable as per the market's reward type)
+    event IPGdaOfferFilled(
         bytes32 indexed offerHash,
         address indexed ap,
         uint256 fillAmount,
@@ -286,6 +359,8 @@ abstract contract RecipeMarketHubBase is Owned, ReentrancyGuardTransient {
     error WalletNotForfeitable();
     /// @notice emitted when trying to fill an offer with a quantity below the minimum fill percent
     error InsufficientFillPercent();
+    /// @notice emitted when the initialDiscountMultiplier is more than 100%
+    error InvalidInitialDiscountMultiplier();
 
     /// @notice Modifier to check if msg.sender is owner of a weirollWallet
     modifier isWeirollOwner(address weirollWallet) {
@@ -359,5 +434,36 @@ abstract contract RecipeMarketHubBase is Owned, ReentrancyGuardTransient {
         returns (bytes32)
     {
         return keccak256(abi.encodePacked(offerID, targetMarketHash, ip, expiry, quantity, incentivesOffered, incentiveAmountsOffered));
+    }
+
+    /// @notice Calculates the hash of an IPGda offer
+    function getIPGdaOfferHash(
+        uint256 offerID,
+        bytes32 targetMarketHash,
+        address ip,
+        uint256 expiry,
+        uint256 quantity,
+        address[] calldata incentivesOffered,
+        uint256[] memory incentiveAmountsOffered,
+        GDAParams calldata gdaParams
+    )
+        public
+        pure
+        returns (bytes32)
+    {
+        return keccak256(
+            abi.encodePacked(
+                offerID,
+                targetMarketHash,
+                ip,
+                expiry,
+                quantity,
+                incentivesOffered,
+                incentiveAmountsOffered,
+                gdaParams.initialDiscountMultiplier,
+                gdaParams.decayRate,
+                gdaParams.emissionRate
+            )
+        );
     }
 }
